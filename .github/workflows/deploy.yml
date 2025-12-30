@@ -43,7 +43,7 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: 'projects/954406456592/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          workload_identity_provider: 'projects/382115177008/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'github-deploy@vaulted-bonsai-482814-j6.iam.gserviceaccount.com'
 
       # ---- Setup Cloud SDK ----
