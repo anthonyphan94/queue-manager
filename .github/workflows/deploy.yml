@@ -13,7 +13,7 @@ env:
   GCP_REGION: 'us-central1'
   SERVICE_NAME: 'mbl-queue-manager'            # Tên Service Cloud Run
   ARTIFACT_REGISTRY: 'us-central1-docker.pkg.dev'
-  REPOSITORY_NAME: 'queue-manager'              # Tên repo trong Artifact Registry (đã có từ trước)
+  REPOSITORY_NAME: 'mbl-queue-manager'              # Tên repo trong Artifact Registry (đã có từ trước)
   IMAGE_NAME: 'queue-manager'
 
 jobs:
