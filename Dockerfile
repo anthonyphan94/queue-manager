@@ -37,7 +37,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend code
-COPY backend/ ./backend/
+COPY backend/ .
 
 # Copy built frontend to static directory
 COPY --from=frontend-builder /app/frontend/dist ./backend/static
@@ -50,4 +50,4 @@ EXPOSE 8080
 
 
 # Run the application
-CMD ["sh", "-c", "python -m uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
