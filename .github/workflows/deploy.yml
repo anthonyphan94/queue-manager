@@ -7,13 +7,13 @@ on:
   workflow_dispatch:
 
 env:
-  # --- SỬA CÁC DÒNG NÀY ---
-  GCP_PROJECT_ID: 'mbl-queue-manager'           # Giữ nguyên
-  GCP_PROJECT_NUMBER: '382115177008'            # Giữ nguyên
+  # --- CẤU HÌNH ---
+  GCP_PROJECT_ID: 'mbl-queue-manager'
+  GCP_PROJECT_NUMBER: '382115177008'
   GCP_REGION: 'us-central1'
-  SERVICE_NAME: 'queue-manager'                 # Tên Service chạy web (để ngắn gọn cho dễ nhìn)
+  SERVICE_NAME: 'queue-manager'
   ARTIFACT_REGISTRY: 'us-central1-docker.pkg.dev'
-  REPOSITORY_NAME: 'queue-manager'              # <--- QUAN TRỌNG: Đã sửa từ 'mbl-queue-manager' thành 'queue-manager'
+  REPOSITORY_NAME: 'queue-manager'              # Đã chuẩn
   IMAGE_NAME: 'queue-manager'
 
 jobs:
@@ -34,9 +34,7 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          # Đã đúng số 382...
           workload_identity_provider: 'projects/382115177008/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-          # SỬA EMAIL: Dùng đúng email mặc định mà chúng ta đã cấp quyền
           service_account: '382115177008-compute@developer.gserviceaccount.com'
 
       - name: Set up Cloud SDK
@@ -66,18 +64,8 @@ jobs:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.GCP_REGION }}
           image: ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          flags: |
-            --allow-unauthenticated
-            --port=8080
-            --memory=512Mi
-            --cpu=1
-            --min-instances=0
-            --max-instances=10
-            --execution-environment=gen2
-            # TẠM ẨN VOLUME: Để tránh lỗi nếu Bucket chưa tạo. 
-            # Sau khi deploy thành công lần đầu, ông hãy bỏ comment 2 dòng dưới để gắn ổ cứng sau.
-            # --add-volume=name=salon-data,type=cloud-storage,bucket=${{ env.GCP_PROJECT_ID }}-salon-data
-            # --add-volume-mount=volume=salon-data,mount-path=/app/data
+          # Đã xóa sạch comment để tránh lỗi cú pháp
+          flags: '--allow-unauthenticated --port=8080 --memory=512Mi --cpu=1 --min-instances=0 --max-instances=10 --execution-environment=gen2'
 
       - name: Show Service URL
         run: |
