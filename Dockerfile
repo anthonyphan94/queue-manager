@@ -18,36 +18,18 @@ RUN npm run build
 # ========================================
 # Stage 2: Production Python Image
 # ========================================
-FROM python:3.11-slim AS production
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PORT=8080 \
-    DATA_DIR=/app/data
+# Stage 2: Production
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
+# 1. Copy nội dung Backend ra root của /app
+COPY backend/ . 
 
-# Copy and install Python dependencies
-COPY requirements.txt .
+# 2. Copy NỘI DUNG của thư mục dist (sau khi build) vào /app/static
+# Lưu ý dấu / ở sau dist/ và static/ để copy nội dung, không copy cả folder
+COPY --from=frontend-builder /app/frontend/dist/ ./static/
+
+# 3. Cài đặt dependency và chạy app
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy backend code
-COPY backend/ .
-
-# Copy built frontend to static directory
-COPY --from=frontend-builder /app/frontend/dist/ ./backend/static
-
-# Create data directory for SQLite
-RUN mkdir -p /app/data
-
-# Expose port
-EXPOSE 8080
-
-
-# Run the application
 CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
