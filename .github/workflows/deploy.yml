@@ -8,12 +8,12 @@ on:
 
 env:
   # --- SỬA CÁC DÒNG NÀY ---
-  GCP_PROJECT_ID: 'mbl-queue-manager'           # ID chuẩn từ log của ông
-  GCP_PROJECT_NUMBER: '382115177008'            # Số CMND chuẩn
+  GCP_PROJECT_ID: 'mbl-queue-manager'           # Giữ nguyên
+  GCP_PROJECT_NUMBER: '382115177008'            # Giữ nguyên
   GCP_REGION: 'us-central1'
-  SERVICE_NAME: 'mbl-queue-manager'            # Tên Service Cloud Run
+  SERVICE_NAME: 'queue-manager'                 # Tên Service chạy web (để ngắn gọn cho dễ nhìn)
   ARTIFACT_REGISTRY: 'us-central1-docker.pkg.dev'
-  REPOSITORY_NAME: 'mbl-queue-manager'              # Tên repo trong Artifact Registry (đã có từ trước)
+  REPOSITORY_NAME: 'queue-manager'              # <--- QUAN TRỌNG: Đã sửa từ 'mbl-queue-manager' thành 'queue-manager'
   IMAGE_NAME: 'queue-manager'
 
 jobs:
