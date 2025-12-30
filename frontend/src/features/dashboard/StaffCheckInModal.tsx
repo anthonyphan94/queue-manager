@@ -38,14 +38,14 @@ export const StaffCheckInModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-3 md:p-4" onClick={onClose}>
             {/* Modal Container: Flex Column with space-y-6 for automatic 24px gaps */}
             <div
-                className="flex flex-col p-8 space-y-6 bg-white rounded-2xl shadow-xl max-w-3xl w-full"
+                className="flex flex-col p-4 md:p-8 space-y-4 md:space-y-6 bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Child 1: Header */}
-                <h2 className="text-2xl font-bold text-slate-800 text-center">Select Working Technicians</h2>
+                <h2 className="text-xl md:text-2xl font-bold text-slate-800 text-center">Select Working Technicians</h2>
 
                 {/* Child 2: Input Section */}
                 <div>
@@ -85,7 +85,7 @@ export const StaffCheckInModal = ({
                 </div>
 
                 {/* Child 3: The List (Grid of Name Chips) */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
                     {technicians.map((tech) => (
                         <div key={tech.id} className="relative group">
                             <button

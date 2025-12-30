@@ -71,10 +71,10 @@ export const Dashboard = () => {
     return (
         <div className="flex flex-col h-screen font-sans text-slate-800" style={{ backgroundColor: '#f3dadc' }}>
             {/* --- TOP BAR --- */}
-            <div className="h-16 bg-white shadow-md z-30 flex items-center justify-between px-6 shrink-0">
-                <div className="flex items-center gap-3">
-                    <img src={logo} alt="Marilyn's Beauty Lounge" className="h-12 w-auto" />
-                    <h1 className="text-2xl font-brand text-slate-800">MARILYN BEAUTY LOUNGE</h1>
+            <div className="h-14 md:h-16 bg-white shadow-md z-30 flex items-center justify-between px-3 md:px-6 shrink-0">
+                <div className="flex items-center gap-2 md:gap-3">
+                    <img src={logo} alt="Marilyn's Beauty Lounge" className="h-10 md:h-12 w-auto" />
+                    <h1 className="text-lg md:text-2xl font-brand text-slate-800 hidden sm:block">MARILYN BEAUTY LOUNGE</h1>
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
@@ -96,8 +96,8 @@ export const Dashboard = () => {
             />
 
             {/* --- MAIN CONTENT --- */}
-            <main className="flex-1 p-6 overflow-hidden">
-                <div className="flex gap-10 h-full">
+            <main className="flex-1 p-3 md:p-6 overflow-hidden">
+                <div className="flex flex-col lg:flex-row gap-4 md:gap-10 h-full">
                     {/* Left Panel: Queue */}
                     <QueueList
                         queue={queue}
