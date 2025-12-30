@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 import json
 import os
 
-from .app.schemas import (
+from app.schemas import (
     TechnicianCreate,
     TechnicianResponse,
     AssignRequest,
