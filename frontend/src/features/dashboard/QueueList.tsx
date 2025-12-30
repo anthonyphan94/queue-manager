@@ -1,0 +1,199 @@
+/**
+ * QueueList - Handles the drag-and-drop queue list.
+ */
+
+import { useState, useEffect } from 'react';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import type { Technician } from '../../types';
+import { RequestIcon, SkipIcon, ClockOutIcon } from './Icons';
+import NextTurnHero from './NextTurnHero';
+
+// --- Sortable Item Component ---
+interface SortableQueueItemProps {
+    id: number;
+    tech: Technician;
+    index: number;
+    onRequest: (techId: number) => void;
+    onSkip: (techId: number) => void;
+    onClockOut: (techId: number) => void;
+}
+
+const SortableQueueItem = ({ id, tech, index, onRequest, onSkip, onClockOut }: SortableQueueItemProps) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 50 : 'auto',
+    };
+
+    const isFirst = index === 0;
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            {...listeners}
+            className={`
+                group relative flex items-center justify-between p-4 rounded-2xl transition-all duration-200 bg-white
+                ${isDragging ? 'shadow-xl scale-105 z-50 ring-2 ring-rose-300' : 'shadow-sm border border-rose-100/50'}
+                ${isFirst ? 'border-l-8 border-rose-500' : 'hover:border-rose-200'}
+            `}
+        >
+            {/* Position & Name */}
+            <div className="flex items-center gap-4 pointer-events-none">
+                <div className={`
+                    w-10 h-10 flex items-center justify-center rounded-full font-bold text-lg
+                    ${isFirst ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-500'}
+                `}>
+                    {index + 1}
+                </div>
+                <span className={`font-bold ${isFirst ? 'text-3xl text-slate-800' : 'text-xl text-slate-800'}`}>
+                    {tech.name}
+                </span>
+            </div>
+
+            {/* Action Buttons */}
+            <div
+                className={`flex gap-4 transition-opacity ${isDragging ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}
+                onPointerDown={(e) => e.stopPropagation()}
+            >
+                <button
+                    onClick={() => onClockOut(tech.id)}
+                    title="Clock Out"
+                    className="p-2 bg-white text-slate-400 rounded-lg border border-rose-200 hover:bg-rose-50 hover:text-rose-500 shadow-sm transition-colors cursor-pointer h-11 w-11 flex items-center justify-center"
+                >
+                    <ClockOutIcon />
+                </button>
+                <button
+                    onClick={() => onRequest(tech.id)}
+                    title="Request Assign"
+                    className="p-2 bg-white text-rose-500 rounded-lg border border-rose-200 hover:bg-rose-50 shadow-sm transition-colors cursor-pointer h-11 w-11 flex items-center justify-center"
+                >
+                    <RequestIcon />
+                </button>
+                <button
+                    onClick={() => onSkip(tech.id)}
+                    title="Skip to Bottom"
+                    className="p-2 bg-white text-slate-400 rounded-lg border border-rose-200 hover:bg-slate-50 hover:text-slate-600 shadow-sm transition-colors cursor-pointer h-11 w-11 flex items-center justify-center"
+                >
+                    <SkipIcon />
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// --- Main QueueList Component ---
+interface QueueListProps {
+    queue: Technician[];
+    onNextTurn: () => void;
+    onRequest: (techId: number) => void;
+    onSkip: (techId: number) => void;
+    onClockOut: (techId: number) => void;
+    onReorder: (techIds: number[]) => void;
+}
+
+export const QueueList = ({ queue, onNextTurn, onRequest, onSkip, onClockOut, onReorder }: QueueListProps) => {
+    const [queueItems, setQueueItems] = useState<Technician[]>([]);
+
+    // Sync queueItems with props
+    useEffect(() => {
+        setQueueItems(queue);
+    }, [queue]);
+
+    // Dnd Sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragEnd = (event: any) => {
+        const { active, over } = event;
+
+        if (active.id !== over?.id) {
+            setQueueItems((items) => {
+                const oldIndex = items.findIndex((item) => item.id === active.id);
+                const newIndex = items.findIndex((item) => item.id === over.id);
+
+                const newItems = arrayMove(items, oldIndex, newIndex);
+
+                // Trigger Backend Update
+                const newOrderIds = newItems.map(t => t.id);
+                onReorder(newOrderIds);
+
+                return newItems;
+            });
+        }
+    };
+
+    return (
+        <div className="w-[40%] flex flex-col bg-white rounded-3xl shadow-sm border border-rose-100/50 overflow-hidden">
+            {/* Header: NEXT TURN Button */}
+            <NextTurnHero queueLength={queueItems.length} onNextTurn={onNextTurn} />
+
+            {/* Queue List with Drag and Drop */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                >
+                    <SortableContext
+                        items={queueItems.map(t => t.id)}
+                        strategy={verticalListSortingStrategy}
+                    >
+                        {queueItems.map((tech, index) => (
+                            <SortableQueueItem
+                                key={tech.id}
+                                id={tech.id}
+                                tech={tech}
+                                index={index}
+                                onRequest={onRequest}
+                                onSkip={onSkip}
+                                onClockOut={onClockOut}
+                            />
+                        ))}
+                    </SortableContext>
+                </DndContext>
+
+                {queueItems.length === 0 && (
+                    <div className="text-center py-20 text-rose-300 italic">
+                        No technicians available. Please add technicians to the queue.
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+export default QueueList;

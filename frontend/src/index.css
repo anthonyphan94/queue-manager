@@ -1,0 +1,18 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap');
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f3dadc;
+    /* rose-50 for Pink Chic */
+    color: #1e293b;
+    /* slate-800 */
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Brand Name Font - The Seasons with Playfair Display fallback */
+.font-brand {
+    font-family: 'The Seasons', 'Playfair Display', Georgia, serif;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+}

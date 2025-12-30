@@ -1,0 +1,226 @@
+"""
+Salon Turn Manager API - Main Entry Point
+
+This module defines FastAPI endpoints that delegate to the TurnRulesService.
+All business logic is contained in the services layer.
+"""
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from typing import List
+import json
+
+from app.schemas import (
+    TechnicianCreate,
+    TechnicianResponse,
+    AssignRequest,
+    AssignResponse,
+    CompleteRequest,
+    CompleteResponse,
+    ToggleActiveRequest,
+    ToggleActiveResponse,
+    ReorderRequest,
+    ReorderResponse,
+    RemoveResponse,
+)
+from app.services.turn_rules import (
+    TurnRulesService,
+    TechnicianEntity,
+    TechnicianNotFoundError,
+    TechnicianNotAvailableError,
+    NoAvailableTechniciansError,
+)
+
+
+# --- App Setup ---
+
+app = FastAPI(
+    title="Salon Turn Manager API",
+    description="API for managing salon technician turn queue",
+    version="2.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# --- Service Initialization ---
+
+# In-memory storage - list of TechnicianEntity objects
+technicians: List[TechnicianEntity] = []
+
+# Initialize the service with the technicians list
+turn_service = TurnRulesService(technicians)
+
+
+# --- WebSocket Connection Manager ---
+
+class ConnectionManager:
+    """Manages WebSocket connections for real-time updates."""
+    
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket) -> None:
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket) -> None:
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: str) -> None:
+        """Broadcast a message to all connected clients."""
+        disconnected = []
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(message)
+            except Exception:
+                disconnected.append(connection)
+        
+        # Clean up disconnected clients
+        for conn in disconnected:
+            self.disconnect(conn)
+
+
+manager = ConnectionManager()
+
+
+# --- Helper Functions ---
+
+async def broadcast_update() -> None:
+    """Broadcast the current state to all WebSocket clients."""
+    data = json.dumps({
+        "type": "update",
+        "technicians": turn_service.get_all_techs_sorted()
+    })
+    await manager.broadcast(data)
+
+
+# --- REST Endpoints ---
+
+@app.get("/techs", response_model=List[TechnicianResponse])
+def list_techs():
+    """Get all technicians sorted by queue position."""
+    return turn_service.get_all_techs_sorted()
+
+
+@app.post("/techs", response_model=TechnicianResponse)
+async def add_tech(tech: TechnicianCreate):
+    """Add a new technician to the roster."""
+    new_tech = turn_service.add_technician(tech.name)
+    await broadcast_update()
+    return {
+        "id": new_tech.id,
+        "name": new_tech.name,
+        "status": new_tech.status,
+        "queue_position": new_tech.queue_position,
+        "is_active": new_tech.is_active
+    }
+
+
+@app.post("/assign", response_model=AssignResponse)
+async def assign_tech(req: AssignRequest):
+    """Assign a technician to a client."""
+    try:
+        if req.request_tech_id:
+            # Specific technician requested
+            tech = turn_service.assign_tech(req.request_tech_id)
+        else:
+            # Get next available
+            tech = turn_service.assign_next_available()
+        
+        await broadcast_update()
+        return AssignResponse(
+            assigned_tech_id=tech.id,
+            assigned_tech_name=tech.name,
+            client=req.client_name
+        )
+    
+    except TechnicianNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except TechnicianNotAvailableError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NoAvailableTechniciansError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/complete", response_model=CompleteResponse)
+async def complete_turn(req: CompleteRequest):
+    """Complete a technician's turn and move them to the bottom of the queue."""
+    try:
+        tech = turn_service.handle_tech_completion(req.tech_id, req.is_request)
+        await broadcast_update()
+        return CompleteResponse(
+            completed_tech_id=tech.id,
+            new_queue_position=tech.queue_position
+        )
+    except TechnicianNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/techs/toggle-active", response_model=ToggleActiveResponse)
+async def toggle_tech_active(req: ToggleActiveRequest):
+    """Toggle a technician's active (checked-in) status."""
+    try:
+        tech = turn_service.toggle_active_status(req.tech_id)
+        await broadcast_update()
+        return ToggleActiveResponse(
+            tech_id=tech.id,
+            is_active=tech.is_active
+        )
+    except TechnicianNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.delete("/techs/{tech_id}", response_model=RemoveResponse)
+async def remove_tech(tech_id: int):
+    """Remove a technician from the roster permanently."""
+    try:
+        turn_service.remove_technician(tech_id)
+        await broadcast_update()
+        return RemoveResponse(tech_id=tech_id)
+    except TechnicianNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/techs/reorder", response_model=ReorderResponse)
+async def reorder_techs(req: ReorderRequest):
+    """Reorder the technician queue based on a new ordering."""
+    turn_service.reorder_queue(req.tech_ids)
+    await broadcast_update()
+    return ReorderResponse()
+
+
+# --- WebSocket Endpoint ---
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time updates."""
+    await manager.connect(websocket)
+    
+    # Send current state on connect
+    init_data = json.dumps({
+        "type": "init",
+        "technicians": turn_service.get_all_techs_sorted()
+    })
+    await websocket.send_text(init_data)
+    
+    try:
+        while True:
+            # Keep connection alive, listen for messages
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+
+# --- Entry Point ---
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
