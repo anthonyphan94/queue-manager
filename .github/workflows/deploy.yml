@@ -15,7 +15,8 @@ on:
 
 env:
   # TODO: Update these values for your project
-  GCP_PROJECT_ID: 'your-gcp-project-id'
+  GCP_PROJECT_ID: 'vaulted-bonsai-482814-j6'
+  GCP_PROJECT_NUMBER: '954406456592'
   GCP_REGION: 'us-central1'
   SERVICE_NAME: 'salon-turn-manager'
   ARTIFACT_REGISTRY: 'us-central1-docker.pkg.dev'
@@ -42,8 +43,8 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: 'projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-          service_account: 'github-deploy@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com'
+          workload_identity_provider: 'projects/954406456592/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-deploy@vaulted-bonsai-482814-j6.iam.gserviceaccount.com'
 
       # ---- Setup Cloud SDK ----
       - name: Set up Cloud SDK

@@ -11,7 +11,7 @@ set -e  # Exit on error
 # ============================================
 # CONFIGURATION - UPDATE THESE VALUES
 # ============================================
-export PROJECT_ID="mbl-queue-manager"        # Your GCP project ID
+export PROJECT_ID="vaulted-bonsai-482814-j6"        # Your GCP project ID
 export REGION="us-central1"                     # Preferred region
 export GITHUB_REPO="anthonyphan94/queue-manager" # Your GitHub repo (owner/repo)
 
