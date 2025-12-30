@@ -40,7 +40,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 
 # Copy built frontend to static directory
-COPY --from=frontend-builder /app/frontend/dist ./backend/static
+COPY --from=frontend-builder /app/frontend/dist/ ./backend/static
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data

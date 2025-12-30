@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 import json
 import os
 
-from app.schemas import (
+from .app.schemas import (
     TechnicianCreate,
     TechnicianResponse,
     AssignRequest,
@@ -316,23 +316,39 @@ async def health_check():
 
 # --- Static File Serving (Production) ---
 
-# Mount static files if the directory exists (production build)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+@app.get("/")
+async def serve_index():
+    index_path = os.path.join(STATIC_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"error": f"Không tìm thấy index.html tại {index_path}"}
+
 if os.path.isdir(STATIC_DIR):
-    # Serve static assets
+    # 1. Phục vụ các file assets (JS, CSS, Images)
+    # Các file này thường nằm trong backend/static/assets
     app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="assets")
-    
-    # Serve index.html for SPA routing (catch-all)
+
+    # 2. Route trang chủ (Tránh lỗi "Not Found" khi vào link gốc)
+    @app.get("/")
+    async def read_index():
+        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+    # 3. Catch-all route cho SPA (React Router)
+    # Phải đặt ở CUỐI CÙNG sau tất cả các API khác
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        """Serve React SPA - return index.html for all non-API routes."""
-        # Don't serve for API routes or WebSocket
+        # Nếu path bắt đầu bằng 'api' hoặc các route backend, trả về 404 thật
         if full_path.startswith(("techs", "ws", "health", "docs", "openapi")):
-            raise HTTPException(status_code=404, detail="Not found")
+            raise HTTPException(status_code=404, detail="API route not found")
         
         index_path = os.path.join(STATIC_DIR, "index.html")
         if os.path.exists(index_path):
             return FileResponse(index_path)
-        raise HTTPException(status_code=404, detail="Frontend not found")
+        raise HTTPException(status_code=404, detail="Frontend build files not found")
+else:
+    print(f"Cảnh báo: Không tìm thấy thư mục static tại {STATIC_DIR}")
 
 
 # --- Entry Point ---
