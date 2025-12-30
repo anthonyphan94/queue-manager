@@ -23,6 +23,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Copy file requirements từ thư mục gốc vào /app
+COPY requirements.txt .
+
 # 1. Copy nội dung Backend ra root của /app
 COPY backend/ . 
 
