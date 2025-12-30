@@ -14,6 +14,7 @@ interface UseTurnLogicReturn {
     technicians: Technician[];
     queue: Technician[];
     working: Technician[];
+    onBreak: Technician[];
     isConnected: boolean;
 
     // Actions
@@ -26,6 +27,8 @@ interface UseTurnLogicReturn {
     addTech: (name: string) => Promise<void>;
     removeTech: (techId: number) => Promise<void>;
     reorderQueue: (techIds: number[]) => Promise<void>;
+    takeBreak: (techId: number) => Promise<void>;
+    returnFromBreak: (techId: number) => Promise<void>;
 }
 
 export const useTurnLogic = (): UseTurnLogicReturn => {
@@ -41,6 +44,8 @@ export const useTurnLogic = (): UseTurnLogicReturn => {
         addTech: storeAddTech,
         removeTech: storeRemoveTech,
         reorderQueue: storeReorderQueue,
+        takeBreak: storeTakeBreak,
+        returnFromBreak: storeReturnFromBreak,
     } = useTechStore();
 
     // Derived state: Queue (available and active technicians)
@@ -51,6 +56,11 @@ export const useTurnLogic = (): UseTurnLogicReturn => {
     // Derived state: Working (busy technicians)
     const working = technicians
         .filter((t: Technician) => t.status === 'BUSY' && t.is_active)
+        .sort((a: Technician, b: Technician) => a.id - b.id);
+
+    // Derived state: On Break
+    const onBreak = technicians
+        .filter((t: Technician) => t.status === 'ON_BREAK' && t.is_active)
         .sort((a: Technician, b: Technician) => a.id - b.id);
 
     // Connect on mount
@@ -131,10 +141,29 @@ export const useTurnLogic = (): UseTurnLogicReturn => {
         }
     }, [storeReorderQueue]);
 
+    const takeBreak = useCallback(async (techId: number) => {
+        try {
+            await storeTakeBreak(techId);
+        } catch (error) {
+            console.error('Failed to take break:', error);
+            throw error;
+        }
+    }, [storeTakeBreak]);
+
+    const returnFromBreak = useCallback(async (techId: number) => {
+        try {
+            await storeReturnFromBreak(techId);
+        } catch (error) {
+            console.error('Failed to return from break:', error);
+            throw error;
+        }
+    }, [storeReturnFromBreak]);
+
     return {
         technicians,
         queue,
         working,
+        onBreak,
         isConnected: wsConnected,
         connect,
         nextTurn,
@@ -145,6 +174,8 @@ export const useTurnLogic = (): UseTurnLogicReturn => {
         addTech,
         removeTech,
         reorderQueue,
+        takeBreak,
+        returnFromBreak,
     };
 };
 

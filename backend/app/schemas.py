@@ -6,12 +6,14 @@ These models define the structure of data used throughout the application.
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from enum import Enum
+from datetime import datetime
 
 
 class TechnicianStatus(str, Enum):
     """Status of a technician in the turn queue."""
     AVAILABLE = "AVAILABLE"
     BUSY = "BUSY"
+    ON_BREAK = "ON_BREAK"
 
 
 class TechnicianBase(BaseModel):
@@ -30,6 +32,7 @@ class Technician(TechnicianBase):
     status: TechnicianStatus = TechnicianStatus.AVAILABLE
     queue_position: int = 0
     is_active: bool = False  # False = Offline, True = Online (checked-in)
+    break_start_time: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -42,6 +45,7 @@ class TechnicianResponse(BaseModel):
     status: str
     queue_position: int
     is_active: bool
+    break_start_time: Optional[str] = None
 
 
 # --- Request Models ---
@@ -98,3 +102,15 @@ class RemoveResponse(BaseModel):
 class ReorderResponse(BaseModel):
     """Response after reordering the queue."""
     status: str = "ok"
+
+
+class BreakRequest(BaseModel):
+    """Request to take or return from break."""
+    tech_id: int
+
+
+class BreakResponse(BaseModel):
+    """Response after break action."""
+    tech_id: int
+    status: str
+    break_start_time: Optional[str] = None

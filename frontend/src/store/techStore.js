@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 
-const API_URL = 'http://localhost:8000';
-const WS_URL = 'ws://localhost:8000/ws';
+// Use relative URLs in production (served from same origin), localhost in development
+const isDev = import.meta.env.DEV;
+const API_URL = isDev ? 'http://localhost:8000' : '';
+const WS_URL = isDev ? 'ws://localhost:8000/ws' : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 
 export const useTechStore = create((set, get) => ({
     technicians: [],
@@ -116,6 +118,28 @@ export const useTechStore = create((set, get) => ({
             method: 'DELETE',
         });
         if (!res.ok) throw new Error('Failed to remove technician');
+        return res.json();
+    },
+
+    // Take break
+    takeBreak: async (techId) => {
+        const res = await fetch(`${API_URL}/techs/break`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tech_id: techId }),
+        });
+        if (!res.ok) throw new Error('Failed to take break');
+        return res.json();
+    },
+
+    // Return from break
+    returnFromBreak: async (techId) => {
+        const res = await fetch(`${API_URL}/techs/return`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tech_id: techId }),
+        });
+        if (!res.ok) throw new Error('Failed to return from break');
         return res.json();
     },
 }));

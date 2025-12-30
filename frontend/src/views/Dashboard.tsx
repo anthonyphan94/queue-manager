@@ -11,6 +11,7 @@ import {
     QueueList,
     WorkingGrid,
     StaffCheckInModal,
+    RestingSection,
     TechniciansIcon,
 } from '../features/dashboard';
 import logo from '../assets/logo.png';
@@ -20,6 +21,7 @@ export const Dashboard = () => {
         technicians,
         queue,
         working,
+        onBreak,
         nextTurn,
         finish,
         request,
@@ -28,6 +30,8 @@ export const Dashboard = () => {
         addTech,
         removeTech,
         reorderQueue,
+        takeBreak,
+        returnFromBreak,
     } = useTurnLogic();
 
     // Modal States
@@ -68,6 +72,14 @@ export const Dashboard = () => {
         await reorderQueue(techIds);
     };
 
+    const handleTakeBreak = async (techId: number) => {
+        await takeBreak(techId);
+    };
+
+    const handleReturnFromBreak = async (techId: number) => {
+        await returnFromBreak(techId);
+    };
+
     return (
         <div className="flex flex-col h-screen font-sans text-slate-800" style={{ backgroundColor: '#f3dadc' }}>
             {/* --- TOP BAR --- */}
@@ -81,7 +93,7 @@ export const Dashboard = () => {
                     className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-xl transition-colors flex items-center gap-2 font-semibold"
                 >
                     <TechniciansIcon />
-                    <span>Technicians</span>
+                    <span className="hidden sm:inline">Technicians</span>
                 </button>
             </div>
 
@@ -96,17 +108,26 @@ export const Dashboard = () => {
             />
 
             {/* --- MAIN CONTENT --- */}
-            <main className="flex-1 p-3 md:p-6 overflow-hidden">
-                <div className="flex flex-col lg:flex-row gap-4 md:gap-10 h-full">
-                    {/* Left Panel: Queue */}
-                    <QueueList
-                        queue={queue}
-                        onNextTurn={handleNextTurn}
-                        onRequest={handleRequest}
-                        onSkip={handleSkip}
-                        onClockOut={handleClockOut}
-                        onReorder={handleReorder}
-                    />
+            <main className="flex-1 p-3 md:p-6 overflow-auto">
+                <div className="flex flex-col lg:flex-row gap-4 md:gap-6 h-full">
+                    {/* Left Panel: Queue + Resting */}
+                    <div className="w-full lg:w-[40%] flex flex-col gap-4 md:gap-6">
+                        <QueueList
+                            queue={queue}
+                            onNextTurn={handleNextTurn}
+                            onRequest={handleRequest}
+                            onSkip={handleSkip}
+                            onClockOut={handleClockOut}
+                            onReorder={handleReorder}
+                            onTakeBreak={handleTakeBreak}
+                        />
+
+                        {/* Resting Section - only shows if there are techs on break */}
+                        <RestingSection
+                            onBreak={onBreak}
+                            onReturn={handleReturnFromBreak}
+                        />
+                    </div>
 
                     {/* Right Panel: Working */}
                     <WorkingGrid

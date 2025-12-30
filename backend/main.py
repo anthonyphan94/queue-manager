@@ -7,8 +7,12 @@ All business logic is contained in the services layer.
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from typing import List
+from contextlib import asynccontextmanager
 import json
+import os
 
 from app.schemas import (
     TechnicianCreate,
@@ -22,6 +26,8 @@ from app.schemas import (
     ReorderRequest,
     ReorderResponse,
     RemoveResponse,
+    BreakRequest,
+    BreakResponse,
 )
 from app.services.turn_rules import (
     TurnRulesService,
@@ -32,17 +38,68 @@ from app.services.turn_rules import (
 )
 
 
+# --- Configuration ---
+
+IS_PRODUCTION = os.getenv("PORT") is not None  # Cloud Run sets PORT
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+
+
+# --- Database Import (optional persistence) ---
+
+try:
+    from app.database import init_db, load_technicians, save_all_technicians, save_technician as db_save_tech, delete_technician as db_delete_tech
+    HAS_DATABASE = True
+except ImportError:
+    HAS_DATABASE = False
+
+
+# --- Lifespan (startup/shutdown) ---
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database and load data on startup."""
+    global technicians, turn_service
+    
+    if HAS_DATABASE:
+        await init_db()
+        loaded = await load_technicians()
+        for t in loaded:
+            technicians.append(TechnicianEntity(
+                id=t["id"],
+                name=t["name"],
+                status=t["status"],
+                queue_position=t["queue_position"],
+                is_active=t["is_active"],
+                break_start_time=None  # Will be parsed if needed
+            ))
+        print(f"📦 Loaded {len(technicians)} technicians from database")
+    
+    yield  # App runs here
+    
+    # Cleanup (optional)
+    if HAS_DATABASE and technicians:
+        await save_all_technicians(turn_service.get_all_techs_sorted())
+        print("💾 Saved technicians to database on shutdown")
+
+
 # --- App Setup ---
 
 app = FastAPI(
     title="Salon Turn Manager API",
     description="API for managing salon technician turn queue",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
+
+# CORS - restrict in production
+allowed_origins = ["*"] if not IS_PRODUCTION else [
+    "https://*.run.app",
+    "https://salon-turn-manager-*.run.app"
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -197,6 +254,36 @@ async def reorder_techs(req: ReorderRequest):
     return ReorderResponse()
 
 
+@app.post("/techs/break", response_model=BreakResponse)
+async def take_break(req: BreakRequest):
+    """Put a technician on break."""
+    try:
+        tech = turn_service.take_break(req.tech_id)
+        await broadcast_update()
+        return BreakResponse(
+            tech_id=tech.id,
+            status=tech.status,
+            break_start_time=tech.break_start_time.isoformat() if tech.break_start_time else None
+        )
+    except TechnicianNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/techs/return", response_model=BreakResponse)
+async def return_from_break(req: BreakRequest):
+    """Return a technician from break to the queue."""
+    try:
+        tech = turn_service.return_from_break(req.tech_id)
+        await broadcast_update()
+        return BreakResponse(
+            tech_id=tech.id,
+            status=tech.status,
+            break_start_time=None
+        )
+    except TechnicianNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 # --- WebSocket Endpoint ---
 
 @app.websocket("/ws")
@@ -219,8 +306,39 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 
+# --- Health Check Endpoint ---
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Cloud Run."""
+    return {"status": "healthy", "version": "2.0.0"}
+
+
+# --- Static File Serving (Production) ---
+
+# Mount static files if the directory exists (production build)
+if os.path.isdir(STATIC_DIR):
+    # Serve static assets
+    app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="assets")
+    
+    # Serve index.html for SPA routing (catch-all)
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        """Serve React SPA - return index.html for all non-API routes."""
+        # Don't serve for API routes or WebSocket
+        if full_path.startswith(("techs", "ws", "health", "docs", "openapi")):
+            raise HTTPException(status_code=404, detail="Not found")
+        
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        raise HTTPException(status_code=404, detail="Frontend not found")
+
+
 # --- Entry Point ---
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
+

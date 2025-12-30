@@ -7,6 +7,7 @@ It does NOT depend on FastAPI, only on data models.
 
 from typing import List, Optional
 from dataclasses import dataclass, field
+from datetime import datetime
 
 
 class TurnRulesError(Exception):
@@ -43,9 +44,10 @@ class TechnicianEntity:
     """
     id: int
     name: str
-    status: str = "AVAILABLE"  # "AVAILABLE" or "BUSY"
+    status: str = "AVAILABLE"  # "AVAILABLE", "BUSY", or "ON_BREAK"
     queue_position: int = 0
     is_active: bool = False  # False = Offline, True = Online (checked-in)
+    break_start_time: Optional[datetime] = None
 
 
 class TurnRulesService:
@@ -268,6 +270,43 @@ class TurnRulesService:
             if tech:
                 tech.queue_position = index + 1
 
+    def take_break(self, tech_id: int) -> TechnicianEntity:
+        """
+        Put a technician on break.
+        
+        Args:
+            tech_id: The technician's unique identifier.
+            
+        Returns:
+            The updated technician.
+            
+        Raises:
+            TechnicianNotFoundError: If technician is not found.
+        """
+        tech = self.get_tech_by_id_or_raise(tech_id)
+        tech.status = "ON_BREAK"
+        tech.break_start_time = datetime.now()
+        return tech
+
+    def return_from_break(self, tech_id: int) -> TechnicianEntity:
+        """
+        Return a technician from break to the bottom of the queue.
+        
+        Args:
+            tech_id: The technician's unique identifier.
+            
+        Returns:
+            The updated technician.
+            
+        Raises:
+            TechnicianNotFoundError: If technician is not found.
+        """
+        tech = self.get_tech_by_id_or_raise(tech_id)
+        tech.status = "AVAILABLE"
+        tech.break_start_time = None
+        tech.queue_position = self.calculate_bottom_position()
+        return tech
+
     # --- Serialization Methods ---
 
     def get_all_techs_sorted(self) -> List[dict]:
@@ -284,7 +323,8 @@ class TurnRulesService:
                 "name": t.name,
                 "status": t.status,
                 "queue_position": t.queue_position,
-                "is_active": t.is_active
+                "is_active": t.is_active,
+                "break_start_time": t.break_start_time.isoformat() if t.break_start_time else None
             }
             for t in sorted_techs
         ]

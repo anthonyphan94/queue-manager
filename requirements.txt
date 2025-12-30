@@ -2,3 +2,5 @@ fastapi
 uvicorn
 pytest
 websockets
+aiosqlite
+python-multipart

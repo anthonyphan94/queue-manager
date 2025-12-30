@@ -1,0 +1,97 @@
+# ============================================
+# GCP Cloud Run Deployment Pipeline
+# ============================================
+# Triggers on push to main branch
+# Uses Workload Identity Federation for secure auth
+# ============================================
+
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  # TODO: Update these values for your project
+  GCP_PROJECT_ID: 'your-gcp-project-id'
+  GCP_REGION: 'us-central1'
+  SERVICE_NAME: 'salon-turn-manager'
+  ARTIFACT_REGISTRY: 'us-central1-docker.pkg.dev'
+  REPOSITORY_NAME: 'salon-manager'
+  IMAGE_NAME: 'salon-app'
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    
+    # Required for Workload Identity Federation
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+      # ---- Checkout Code ----
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ---- Authenticate with GCP using Workload Identity ----
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-deploy@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com'
+
+      # ---- Setup Cloud SDK ----
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      # ---- Configure Docker for Artifact Registry ----
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }} --quiet
+
+      # ---- Build Docker Image ----
+      - name: Build Docker image
+        run: |
+          docker build \
+            --tag "${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}" \
+            --tag "${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:latest" \
+            .
+
+      # ---- Push to Artifact Registry ----
+      - name: Push Docker image
+        run: |
+          docker push "${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          docker push "${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:latest"
+
+      # ---- Deploy to Cloud Run ----
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.GCP_REGION }}
+          image: ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          flags: |
+            --allow-unauthenticated
+            --port=8080
+            --memory=512Mi
+            --cpu=1
+            --min-instances=0
+            --max-instances=10
+            --execution-environment=gen2
+            --add-volume=name=salon-data,type=cloud-storage,bucket=${{ env.GCP_PROJECT_ID }}-salon-data
+            --add-volume-mount=volume=salon-data,mount-path=/app/data
+
+      # ---- Output Service URL ----
+      - name: Show Service URL
+        run: |
+          echo "🚀 Deployed to: https://${{ env.SERVICE_NAME }}-${{ github.run_id }}.run.app"
+          gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.GCP_REGION }} \
+            --format='value(status.url)'

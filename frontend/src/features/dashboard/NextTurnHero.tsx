@@ -13,7 +13,7 @@ export const NextTurnHero = ({ queueLength, onNextTurn }: NextTurnHeroProps) => 
     const isDisabled = queueLength === 0;
 
     return (
-        <div className="p-6 border-b border-rose-100 z-10 shrink-0">
+        <div className="p-3 md:p-4 border-b border-rose-100 z-10 shrink-0">
             <button
                 onClick={onNextTurn}
                 disabled={isDisabled}
