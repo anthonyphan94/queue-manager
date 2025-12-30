@@ -1,26 +1,19 @@
-# ============================================
-# GCP Cloud Run Deployment Pipeline
-# ============================================
-# Triggers on push to main branch
-# Uses Workload Identity Federation for secure auth
-# ============================================
-
 name: Deploy to Cloud Run
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
 
 env:
-  # TODO: Update these values for your project
-  GCP_PROJECT_ID: 'vaulted-bonsai-482814-j6'
-  GCP_PROJECT_NUMBER: '954406456592'
+  # --- SỬA CÁC DÒNG NÀY ---
+  GCP_PROJECT_ID: 'mbl-queue-manager'           # ID chuẩn từ log của ông
+  GCP_PROJECT_NUMBER: '382115177008'            # Số CMND chuẩn
   GCP_REGION: 'us-central1'
-  SERVICE_NAME: 'salon-turn-manager'
+  SERVICE_NAME: 'salon-turn-manager'            # Tên Service Cloud Run
   ARTIFACT_REGISTRY: 'us-central1-docker.pkg.dev'
-  REPOSITORY_NAME: 'salon-manager'
+  REPOSITORY_NAME: 'queue-manager'              # Tên repo trong Artifact Registry (đã có từ trước)
   IMAGE_NAME: 'salon-app'
 
 jobs:
@@ -28,36 +21,33 @@ jobs:
     name: Build and Deploy
     runs-on: ubuntu-latest
     
-    # Required for Workload Identity Federation
     permissions:
       contents: read
       id-token: write
     
     steps:
-      # ---- Checkout Code ----
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ---- Authenticate with GCP using Workload Identity ----
+      # --- Authenticate ---
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
         with:
+          # Đã đúng số 382...
           workload_identity_provider: 'projects/382115177008/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-          service_account: 'github-deploy@vaulted-bonsai-482814-j6.iam.gserviceaccount.com'
+          # SỬA EMAIL: Dùng đúng email mặc định mà chúng ta đã cấp quyền
+          service_account: '382115177008-compute@developer.gserviceaccount.com'
 
-      # ---- Setup Cloud SDK ----
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
 
-      # ---- Configure Docker for Artifact Registry ----
       - name: Configure Docker
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }} --quiet
 
-      # ---- Build Docker Image ----
       - name: Build Docker image
         run: |
           docker build \
@@ -65,13 +55,11 @@ jobs:
             --tag "${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:latest" \
             .
 
-      # ---- Push to Artifact Registry ----
       - name: Push Docker image
         run: |
           docker push "${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
           docker push "${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:latest"
 
-      # ---- Deploy to Cloud Run ----
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
@@ -86,13 +74,11 @@ jobs:
             --min-instances=0
             --max-instances=10
             --execution-environment=gen2
-            --add-volume=name=salon-data,type=cloud-storage,bucket=${{ env.GCP_PROJECT_ID }}-salon-data
-            --add-volume-mount=volume=salon-data,mount-path=/app/data
+            # TẠM ẨN VOLUME: Để tránh lỗi nếu Bucket chưa tạo. 
+            # Sau khi deploy thành công lần đầu, ông hãy bỏ comment 2 dòng dưới để gắn ổ cứng sau.
+            # --add-volume=name=salon-data,type=cloud-storage,bucket=${{ env.GCP_PROJECT_ID }}-salon-data
+            # --add-volume-mount=volume=salon-data,mount-path=/app/data
 
-      # ---- Output Service URL ----
       - name: Show Service URL
         run: |
           echo "🚀 Deployed to: https://${{ env.SERVICE_NAME }}-${{ github.run_id }}.run.app"
-          gcloud run services describe ${{ env.SERVICE_NAME }} \
-            --region=${{ env.GCP_REGION }} \
-            --format='value(status.url)'
