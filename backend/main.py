@@ -181,9 +181,15 @@ def list_techs():
 async def add_tech(tech: TechnicianCreate):
     """Add a new technician to the roster."""
     new_tech = turn_service.add_technician(tech.name)
-    # Set status_start_time using Firestore SERVER_TIMESTAMP
+    # Save the new technician to Firestore with SERVER_TIMESTAMP
     if HAS_DATABASE:
-        await update_technician_status(new_tech.id, new_tech.status)
+        await db_save_tech({
+            "id": new_tech.id,
+            "name": new_tech.name,
+            "status": new_tech.status,
+            "queue_position": new_tech.queue_position,
+            "is_active": new_tech.is_active,
+        }, update_status_time=True)
     await broadcast_update()
     return {
         "id": new_tech.id,
@@ -228,9 +234,15 @@ async def complete_turn(req: CompleteRequest):
     """Complete a technician's turn and move them to the bottom of the queue."""
     try:
         tech = turn_service.handle_tech_completion(req.tech_id, req.is_request)
-        # Set status_start_time using Firestore SERVER_TIMESTAMP
+        # Save full state to Firestore (status + queue_position changed)
         if HAS_DATABASE:
-            await update_technician_status(tech.id, tech.status)
+            await db_save_tech({
+                "id": tech.id,
+                "name": tech.name,
+                "status": tech.status,
+                "queue_position": tech.queue_position,
+                "is_active": tech.is_active,
+            }, update_status_time=True)
         await broadcast_update()
         return CompleteResponse(
             completed_tech_id=tech.id,
@@ -245,6 +257,15 @@ async def toggle_tech_active(req: ToggleActiveRequest):
     """Toggle a technician's active (checked-in) status."""
     try:
         tech = turn_service.toggle_active_status(req.tech_id)
+        # Save is_active change to Firestore
+        if HAS_DATABASE:
+            await db_save_tech({
+                "id": tech.id,
+                "name": tech.name,
+                "status": tech.status,
+                "queue_position": tech.queue_position,
+                "is_active": tech.is_active,
+            }, update_status_time=False)
         await broadcast_update()
         return ToggleActiveResponse(
             tech_id=tech.id,
@@ -259,6 +280,9 @@ async def remove_tech(tech_id: int):
     """Remove a technician from the roster permanently."""
     try:
         turn_service.remove_technician(tech_id)
+        # Delete from Firestore
+        if HAS_DATABASE:
+            await db_delete_tech(tech_id)
         await broadcast_update()
         return RemoveResponse(tech_id=tech_id)
     except TechnicianNotFoundError as e:
@@ -269,6 +293,9 @@ async def remove_tech(tech_id: int):
 async def reorder_techs(req: ReorderRequest):
     """Reorder the technician queue based on a new ordering."""
     turn_service.reorder_queue(req.tech_ids)
+    # Save all queue positions to Firestore
+    if HAS_DATABASE:
+        await save_all_technicians(turn_service.get_all_techs_sorted())
     await broadcast_update()
     return ReorderResponse()
 
@@ -296,9 +323,15 @@ async def return_from_break(req: BreakRequest):
     """Return a technician from break to the queue."""
     try:
         tech = turn_service.return_from_break(req.tech_id)
-        # Set status_start_time using Firestore SERVER_TIMESTAMP
+        # Save full state to Firestore (status + queue_position changed)
         if HAS_DATABASE:
-            await update_technician_status(tech.id, tech.status)
+            await db_save_tech({
+                "id": tech.id,
+                "name": tech.name,
+                "status": tech.status,
+                "queue_position": tech.queue_position,
+                "is_active": tech.is_active,
+            }, update_status_time=True)
         await broadcast_update()
         return BreakResponse(
             tech_id=tech.id,
