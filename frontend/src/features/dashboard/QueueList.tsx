@@ -79,7 +79,7 @@ const SortableQueueItem = ({ id, tech, index, onRequest, onSkip, onClockOut, onT
 
             {/* Action Buttons - Always visible on mobile for touch */}
             <div
-                className={`flex gap-1 md:gap-2 transition-opacity shrink-0 ${isDragging ? 'opacity-0' : 'opacity-100 lg:opacity-0 lg:group-hover:opacity-100'}`}
+                className={`flex gap-1 md:gap-2 transition-opacity shrink-0 ${isDragging ? 'opacity-0' : 'opacity-100'}`}
                 onPointerDown={(e) => e.stopPropagation()}
             >
                 <button
