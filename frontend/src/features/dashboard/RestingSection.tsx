@@ -34,7 +34,7 @@ export const RestingSection = ({ onBreak, onReturn }: RestingSectionProps) => {
     if (onBreak.length === 0) return null;
 
     return (
-        <div className="flex flex-col h-full bg-white border-t-2 border-orange-200">
+        <div className="flex flex-col h-full bg-white rounded-3xl shadow-sm border border-orange-200 overflow-hidden">
             {/* Header - Static, doesn't scroll */}
             <div className="shrink-0 px-3 md:px-4 py-2 md:py-3 bg-orange-50 border-b border-orange-100">
                 <h2 className="text-sm md:text-base font-bold text-orange-700">

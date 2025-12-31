@@ -111,7 +111,7 @@ export const Dashboard = () => {
             <main className="flex-1 p-3 md:p-6 overflow-auto">
                 <div className="flex flex-col lg:flex-row gap-4 md:gap-6 h-full">
                     {/* Left Panel: Sidebar with Queue + Resting */}
-                    <div className="w-full lg:w-[40%] flex flex-col h-full overflow-hidden">
+                    <div className="w-full lg:w-[40%] flex flex-col gap-3 md:gap-4 h-full overflow-hidden">
                         {/* Top Section: Queue - takes remaining space */}
                         <div className="flex-1 min-h-0 overflow-hidden">
                             <QueueList
