@@ -4,11 +4,22 @@
 
 import type { Technician } from '../../types';
 import { FinishIcon, EmptyStateIcon } from './Icons';
+import { useStatusTimer, formatDuration } from '../../hooks/useStatusTimer';
 
 interface WorkingGridProps {
     working: Technician[];
     onFinish: (techId: number) => void;
 }
+
+// Timer component for working technicians
+const WorkingTimer = ({ statusStartTime }: { statusStartTime?: string | null }) => {
+    const elapsedSeconds = useStatusTimer(statusStartTime);
+    return (
+        <div className="text-xs md:text-sm text-slate-400 font-medium mt-1">
+            Working: {formatDuration(elapsedSeconds)}
+        </div>
+    );
+};
 
 export const WorkingGrid = ({ working, onFinish }: WorkingGridProps) => {
     return (
@@ -26,11 +37,14 @@ export const WorkingGrid = ({ working, onFinish }: WorkingGridProps) => {
                 <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
                     {working.map((tech) => (
                         <div key={tech.id} className="bg-white p-3 md:p-5 rounded-xl md:rounded-2xl shadow-sm border border-rose-100 flex flex-col gap-3 md:gap-4 hover:shadow-md transition-all duration-200">
-                            <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-1">
-                                <span className="font-bold text-base md:text-xl text-slate-800 truncate">{tech.name}</span>
-                                <span className="px-2 py-0.5 md:px-2.5 md:py-1 bg-green-100 text-green-700 text-[10px] md:text-xs font-bold rounded-full uppercase tracking-wide w-fit">
-                                    Busy
-                                </span>
+                            <div className="flex flex-col">
+                                <div className="flex flex-row justify-between items-start gap-1">
+                                    <span className="font-bold text-base md:text-xl text-slate-800 truncate">{tech.name}</span>
+                                    <span className="px-2 py-0.5 md:px-2.5 md:py-1 bg-green-100 text-green-700 text-[10px] md:text-xs font-bold rounded-full uppercase tracking-wide w-fit shrink-0">
+                                        Busy
+                                    </span>
+                                </div>
+                                <WorkingTimer statusStartTime={tech.status_start_time} />
                             </div>
 
                             <button

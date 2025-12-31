@@ -22,6 +22,22 @@ import { CSS } from '@dnd-kit/utilities';
 import type { Technician } from '../../types';
 import { RequestIcon, SkipIcon, ClockOutIcon, CoffeeIcon } from './Icons';
 import NextTurnHero from './NextTurnHero';
+import { useStatusTimer, formatDuration } from '../../hooks/useStatusTimer';
+
+// --- Reusable Timer Display Component ---
+interface TechTimerProps {
+    statusStartTime?: string | null;
+    label: string;
+}
+
+const TechTimer = ({ statusStartTime, label }: TechTimerProps) => {
+    const elapsedSeconds = useStatusTimer(statusStartTime);
+    return (
+        <span className="text-xs text-slate-400 font-medium">
+            {label}: {formatDuration(elapsedSeconds)}
+        </span>
+    );
+};
 
 // --- Sortable Item Component ---
 interface SortableQueueItemProps {
@@ -72,9 +88,12 @@ const SortableQueueItem = ({ id, tech, index, onRequest, onSkip, onClockOut, onT
                 `}>
                     {index + 1}
                 </div>
-                <span className={`font-bold truncate ${isFirst ? 'text-lg md:text-3xl text-slate-800' : 'text-sm md:text-xl text-slate-800'}`}>
-                    {tech.name}
-                </span>
+                <div className="flex flex-col min-w-0">
+                    <span className={`font-bold truncate ${isFirst ? 'text-lg md:text-3xl text-slate-800' : 'text-sm md:text-xl text-slate-800'}`}>
+                        {tech.name}
+                    </span>
+                    <TechTimer statusStartTime={tech.status_start_time} label="Waiting" />
+                </div>
             </div>
 
             {/* Action Buttons - Always visible on mobile for touch */}

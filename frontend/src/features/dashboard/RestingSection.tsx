@@ -2,53 +2,18 @@
  * RestingSection - Displays technicians on break with a live timer.
  */
 
-import { useState, useEffect } from 'react';
 import type { Technician } from '../../types';
 import { BackIcon, CoffeeIcon } from './Icons';
+import { useStatusTimer, formatDuration } from '../../hooks/useStatusTimer';
 
 interface RestingSectionProps {
     onBreak: Technician[];
     onReturn: (techId: number) => void;
 }
 
-// Format duration in MM:SS (handles negative/invalid values)
-const formatDuration = (seconds: number): string => {
-    // Ensure we never show negative values
-    const safeSeconds = Math.max(0, seconds);
-    const mins = Math.floor(safeSeconds / 60);
-    const secs = safeSeconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-};
-
-// Hook for live break timer
-const useBreakTimer = (breakStartTime?: string) => {
-    const [elapsed, setElapsed] = useState(0);
-
-    useEffect(() => {
-        if (!breakStartTime) {
-            setElapsed(0);
-            return;
-        }
-
-        const startTime = new Date(breakStartTime).getTime();
-
-        const updateElapsed = () => {
-            const now = Date.now();
-            setElapsed(Math.floor((now - startTime) / 1000));
-        };
-
-        updateElapsed();
-        const interval = setInterval(updateElapsed, 1000);
-
-        return () => clearInterval(interval);
-    }, [breakStartTime]);
-
-    return elapsed;
-};
-
 // Individual break card with timer
 const BreakCard = ({ tech, onReturn }: { tech: Technician; onReturn: (techId: number) => void }) => {
-    const elapsedSeconds = useBreakTimer(tech.status_start_time);
+    const elapsedSeconds = useStatusTimer(tech.status_start_time);
 
     return (
         <div className="bg-orange-50 p-3 md:p-4 rounded-xl border-2 border-orange-300 flex items-center justify-between gap-3 shadow-sm">
