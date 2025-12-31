@@ -32,7 +32,7 @@ class Technician(TechnicianBase):
     status: TechnicianStatus = TechnicianStatus.AVAILABLE
     queue_position: int = 0
     is_active: bool = False  # False = Offline, True = Online (checked-in)
-    break_start_time: Optional[datetime] = None
+    status_start_time: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -45,7 +45,7 @@ class TechnicianResponse(BaseModel):
     status: str
     queue_position: int
     is_active: bool
-    break_start_time: Optional[str] = None
+    status_start_time: Optional[str] = None
 
 
 # --- Request Models ---
@@ -113,4 +113,4 @@ class BreakResponse(BaseModel):
     """Response after break action."""
     tech_id: int
     status: str
-    break_start_time: Optional[str] = None
+    status_start_time: Optional[str] = None

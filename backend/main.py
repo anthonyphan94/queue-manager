@@ -47,10 +47,20 @@ STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 # --- Database Import (optional persistence) ---
 
 try:
-    from app.database import init_db, load_technicians, save_all_technicians, save_technician as db_save_tech, delete_technician as db_delete_tech
+    from app.database import (
+        init_db, 
+        load_technicians, 
+        save_all_technicians, 
+        save_technician as db_save_tech, 
+        delete_technician as db_delete_tech,
+        update_technician_status
+    )
     HAS_DATABASE = True
 except ImportError:
     HAS_DATABASE = False
+    # Provide a no-op fallback if database module not available
+    async def update_technician_status(tech_id: int, status: str) -> None:
+        pass
 
 
 # --- Lifespan (startup/shutdown) ---
@@ -70,7 +80,7 @@ async def lifespan(app: FastAPI):
                 status=t["status"],
                 queue_position=t["queue_position"],
                 is_active=t["is_active"],
-                break_start_time=None  # Will be parsed if needed
+                status_start_time=None  # Will be parsed from Firestore if needed
             ))
         print(f"📦 Loaded {len(technicians)} technicians from database")
     
@@ -171,6 +181,9 @@ def list_techs():
 async def add_tech(tech: TechnicianCreate):
     """Add a new technician to the roster."""
     new_tech = turn_service.add_technician(tech.name)
+    # Set status_start_time using Firestore SERVER_TIMESTAMP
+    if HAS_DATABASE:
+        await update_technician_status(new_tech.id, new_tech.status)
     await broadcast_update()
     return {
         "id": new_tech.id,
@@ -192,6 +205,9 @@ async def assign_tech(req: AssignRequest):
             # Get next available
             tech = turn_service.assign_next_available()
         
+        # Set status_start_time using Firestore SERVER_TIMESTAMP
+        if HAS_DATABASE:
+            await update_technician_status(tech.id, tech.status)
         await broadcast_update()
         return AssignResponse(
             assigned_tech_id=tech.id,
@@ -212,6 +228,9 @@ async def complete_turn(req: CompleteRequest):
     """Complete a technician's turn and move them to the bottom of the queue."""
     try:
         tech = turn_service.handle_tech_completion(req.tech_id, req.is_request)
+        # Set status_start_time using Firestore SERVER_TIMESTAMP
+        if HAS_DATABASE:
+            await update_technician_status(tech.id, tech.status)
         await broadcast_update()
         return CompleteResponse(
             completed_tech_id=tech.id,
@@ -259,11 +278,14 @@ async def take_break(req: BreakRequest):
     """Put a technician on break."""
     try:
         tech = turn_service.take_break(req.tech_id)
+        # Set status_start_time using Firestore SERVER_TIMESTAMP
+        if HAS_DATABASE:
+            await update_technician_status(tech.id, tech.status)
         await broadcast_update()
         return BreakResponse(
             tech_id=tech.id,
             status=tech.status,
-            break_start_time=tech.break_start_time.isoformat() if tech.break_start_time else None
+            status_start_time=None  # Will be fetched from Firestore on next load
         )
     except TechnicianNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -274,11 +296,14 @@ async def return_from_break(req: BreakRequest):
     """Return a technician from break to the queue."""
     try:
         tech = turn_service.return_from_break(req.tech_id)
+        # Set status_start_time using Firestore SERVER_TIMESTAMP
+        if HAS_DATABASE:
+            await update_technician_status(tech.id, tech.status)
         await broadcast_update()
         return BreakResponse(
             tech_id=tech.id,
             status=tech.status,
-            break_start_time=None
+            status_start_time=None  # Will be fetched from Firestore on next load
         )
     except TechnicianNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

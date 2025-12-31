@@ -47,7 +47,7 @@ class TechnicianEntity:
     status: str = "AVAILABLE"  # "AVAILABLE", "BUSY", or "ON_BREAK"
     queue_position: int = 0
     is_active: bool = False  # False = Offline, True = Online (checked-in)
-    break_start_time: Optional[datetime] = None
+    status_start_time: Optional[datetime] = None
 
 
 class TurnRulesService:
@@ -157,7 +157,8 @@ class TurnRulesService:
             name=name,
             status="AVAILABLE",
             queue_position=new_position,
-            is_active=False
+            is_active=False,
+            status_start_time=None  # Will be set by Firestore SERVER_TIMESTAMP
         )
         self.technicians.append(new_tech)
         return new_tech
@@ -195,6 +196,7 @@ class TurnRulesService:
             raise TechnicianNotAvailableError(tech_id, tech.status)
         
         tech.status = "BUSY"
+        # status_start_time will be set by Firestore SERVER_TIMESTAMP
         return tech
 
     def assign_next_available(self) -> TechnicianEntity:
@@ -212,6 +214,7 @@ class TurnRulesService:
             raise NoAvailableTechniciansError()
         
         tech.status = "BUSY"
+        # status_start_time will be set by Firestore SERVER_TIMESTAMP
         return tech
 
     def handle_tech_completion(self, tech_id: int, is_request: bool = False) -> TechnicianEntity:
@@ -235,6 +238,7 @@ class TurnRulesService:
         
         # Mark as available
         tech.status = "AVAILABLE"
+        # status_start_time will be set by Firestore SERVER_TIMESTAMP
         
         # Move to bottom of queue
         tech.queue_position = self.calculate_bottom_position()
@@ -285,7 +289,7 @@ class TurnRulesService:
         """
         tech = self.get_tech_by_id_or_raise(tech_id)
         tech.status = "ON_BREAK"
-        tech.break_start_time = datetime.now()
+        # status_start_time will be set by Firestore SERVER_TIMESTAMP
         return tech
 
     def return_from_break(self, tech_id: int) -> TechnicianEntity:
@@ -303,7 +307,7 @@ class TurnRulesService:
         """
         tech = self.get_tech_by_id_or_raise(tech_id)
         tech.status = "AVAILABLE"
-        tech.break_start_time = None
+        # status_start_time will be set by Firestore SERVER_TIMESTAMP
         tech.queue_position = self.calculate_bottom_position()
         return tech
 
@@ -324,7 +328,7 @@ class TurnRulesService:
                 "status": t.status,
                 "queue_position": t.queue_position,
                 "is_active": t.is_active,
-                "break_start_time": t.break_start_time.isoformat() if t.break_start_time else None
+                "status_start_time": t.status_start_time.isoformat() if t.status_start_time else None
             }
             for t in sorted_techs
         ]

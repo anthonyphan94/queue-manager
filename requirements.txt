@@ -3,4 +3,5 @@ uvicorn
 pytest
 websockets
 aiosqlite
+google-cloud-firestore
 python-multipart
