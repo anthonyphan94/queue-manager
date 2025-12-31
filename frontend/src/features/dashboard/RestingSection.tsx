@@ -1,9 +1,8 @@
 /**
- * RestingSection - Displays technicians on break with a live timer.
+ * RestingSection - Displays technicians on break in a compact grid layout.
  */
 
 import type { Technician } from '../../types';
-import { BackIcon, CoffeeIcon } from './Icons';
 import { useStatusTimer, formatDuration } from '../../hooks/useStatusTimer';
 
 interface RestingSectionProps {
@@ -11,32 +10,23 @@ interface RestingSectionProps {
     onReturn: (techId: number) => void;
 }
 
-// Individual break card with timer
-const BreakCard = ({ tech, onReturn }: { tech: Technician; onReturn: (techId: number) => void }) => {
+// Compact tile for technician on break
+const BreakTile = ({ tech, onReturn }: { tech: Technician; onReturn: (techId: number) => void }) => {
     const elapsedSeconds = useStatusTimer(tech.status_start_time);
 
     return (
-        <div className="bg-orange-50 p-3 md:p-4 rounded-xl border-2 border-orange-300 flex items-center justify-between gap-3 shadow-sm">
-            <div className="flex items-center gap-3">
-                <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-orange-200 text-orange-600">
-                    <CoffeeIcon />
-                </div>
-                <div>
-                    <span className="font-bold text-base md:text-lg text-slate-800">{tech.name}</span>
-                    <div className="text-sm text-orange-600 font-mono font-semibold">
-                        Break: {formatDuration(elapsedSeconds)}
-                    </div>
-                </div>
-            </div>
-            <button
-                onClick={() => onReturn(tech.id)}
-                title="Return from Break"
-                className="p-2 md:p-3 bg-white text-orange-500 rounded-lg border border-orange-300 hover:bg-orange-100 shadow-sm transition-colors cursor-pointer flex items-center gap-2 font-semibold"
-            >
-                <BackIcon />
-                <span className="hidden md:inline">Back</span>
-            </button>
-        </div>
+        <button
+            onClick={() => onReturn(tech.id)}
+            title={`Click to return ${tech.name} from break`}
+            className="bg-orange-50 p-3 rounded-xl border border-orange-200 hover:bg-orange-100 hover:border-orange-300 transition-all duration-200 cursor-pointer flex flex-col items-center gap-1 shadow-sm"
+        >
+            <span className="font-bold text-sm text-slate-800 truncate w-full text-center">
+                {tech.name}
+            </span>
+            <span className="text-xs text-orange-600 font-mono font-semibold">
+                {formatDuration(elapsedSeconds)}
+            </span>
+        </button>
     );
 };
 
@@ -44,20 +34,21 @@ export const RestingSection = ({ onBreak, onReturn }: RestingSectionProps) => {
     if (onBreak.length === 0) return null;
 
     return (
-        <div className="w-full flex flex-col bg-white rounded-3xl shadow-sm border border-orange-200 overflow-hidden">
-            {/* Header */}
-            <div className="p-3 md:p-4 border-b border-orange-100 bg-orange-50">
-                <h2 className="text-base md:text-lg font-bold text-orange-700 flex items-center gap-2">
-                    <CoffeeIcon />
-                    On Break ({onBreak.length})
+        <div className="flex flex-col h-full bg-white border-t-2 border-orange-200">
+            {/* Header - Static, doesn't scroll */}
+            <div className="shrink-0 px-3 md:px-4 py-2 md:py-3 bg-orange-50 border-b border-orange-100">
+                <h2 className="text-sm md:text-base font-bold text-orange-700">
+                    🍴 On Break ({onBreak.length})
                 </h2>
             </div>
 
-            {/* Break Cards */}
-            <div className="p-3 md:p-4 space-y-2 md:space-y-3">
-                {onBreak.map((tech) => (
-                    <BreakCard key={tech.id} tech={tech} onReturn={onReturn} />
-                ))}
+            {/* Scrollable Grid */}
+            <div className="flex-1 overflow-y-auto p-2 md:p-3">
+                <div className="grid grid-cols-2 gap-2">
+                    {onBreak.map((tech) => (
+                        <BreakTile key={tech.id} tech={tech} onReturn={onReturn} />
+                    ))}
+                </div>
             </div>
         </div>
     );

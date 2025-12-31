@@ -185,7 +185,7 @@ export const QueueList = ({ queue, onNextTurn, onRequest, onSkip, onClockOut, on
     };
 
     return (
-        <div className="w-full flex flex-col bg-white rounded-3xl shadow-sm border border-rose-100/50 overflow-hidden">
+        <div className="w-full h-full flex flex-col bg-white rounded-3xl shadow-sm border border-rose-100/50 overflow-hidden">
             {/* Header: NEXT TURN Button */}
             <NextTurnHero queueLength={queueItems.length} onNextTurn={onNextTurn} />
 
