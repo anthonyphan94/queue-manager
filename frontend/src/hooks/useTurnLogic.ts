@@ -34,8 +34,9 @@ interface UseTurnLogicReturn {
 export const useTurnLogic = (): UseTurnLogicReturn => {
     const {
         technicians,
-        wsConnected,
+        firestoreConnected,
         connect,
+        disconnect,
         assignNext,
         completeTurn,
         requestTech,
@@ -63,10 +64,14 @@ export const useTurnLogic = (): UseTurnLogicReturn => {
         .filter((t: Technician) => t.status === 'ON_BREAK' && t.is_active)
         .sort((a: Technician, b: Technician) => a.id - b.id);
 
-    // Connect on mount
+    // Connect on mount, cleanup on unmount
     useEffect(() => {
         connect();
-    }, [connect]);
+        // Cleanup: unsubscribe from Firestore when component unmounts
+        return () => {
+            disconnect();
+        };
+    }, [connect, disconnect]);
 
     // Action wrappers with error handling
     const nextTurn = useCallback(async (clientName: string = 'Walk-in') => {
@@ -164,7 +169,7 @@ export const useTurnLogic = (): UseTurnLogicReturn => {
         queue,
         working,
         onBreak,
-        isConnected: wsConnected,
+        isConnected: firestoreConnected,
         connect,
         nextTurn,
         finish,

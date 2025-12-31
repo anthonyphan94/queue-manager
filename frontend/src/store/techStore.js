@@ -1,48 +1,64 @@
 import { create } from 'zustand';
+import { db } from '../firebase';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 
 // Use relative URLs in production (served from same origin), localhost in development
 const isDev = import.meta.env.DEV;
 const API_URL = isDev ? 'http://localhost:8000' : '';
-const WS_URL = isDev ? 'ws://localhost:8000/ws' : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 
 export const useTechStore = create((set, get) => ({
     technicians: [],
-    wsConnected: false,
-    ws: null,
+    firestoreConnected: false,
+    unsubscribe: null,
 
-    // Connect to WebSocket
+    // Connect to Firestore real-time listener
     connect: () => {
-        if (get().ws) return;
+        // Prevent duplicate subscriptions
+        if (get().unsubscribe) {
+            console.log('Firestore already connected');
+            return;
+        }
 
-        const ws = new WebSocket(WS_URL);
+        console.log('🔥 Connecting to Firestore...');
 
-        ws.onopen = () => {
-            console.log('WebSocket connected');
-            set({ wsConnected: true });
-        };
+        // Create query ordered by queue_position
+        const techniciansRef = collection(db, 'technicians');
+        const q = query(techniciansRef, orderBy('queue_position'));
 
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'init' || data.type === 'update') {
-                set({ technicians: data.technicians });
+        // Subscribe to real-time updates
+        const unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+                const techs = snapshot.docs.map((doc) => ({
+                    id: parseInt(doc.id, 10),
+                    ...doc.data(),
+                    // Convert Firestore Timestamp to ISO string for consistency
+                    status_start_time: doc.data().status_start_time?.toDate?.()?.toISOString() || null
+                }));
+
+                console.log(`📦 Firestore update: ${techs.length} technicians`);
+                set({ technicians: techs, firestoreConnected: true });
+            },
+            (error) => {
+                console.error('❌ Firestore error:', error);
+                set({ firestoreConnected: false });
             }
-        };
+        );
 
-        ws.onclose = () => {
-            console.log('WebSocket disconnected');
-            set({ wsConnected: false, ws: null });
-            // Reconnect after 2 seconds
-            setTimeout(() => get().connect(), 2000);
-        };
-
-        ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-        };
-
-        set({ ws });
+        set({ unsubscribe });
     },
 
-    // Add technician
+    // Disconnect from Firestore (cleanup)
+    disconnect: () => {
+        const { unsubscribe } = get();
+        if (unsubscribe) {
+            console.log('🔌 Disconnecting from Firestore');
+            unsubscribe();
+            set({ unsubscribe: null, firestoreConnected: false });
+        }
+    },
+
+    // Add technician (via Python API)
     addTech: async (name) => {
         const res = await fetch(`${API_URL}/techs`, {
             method: 'POST',
@@ -52,7 +68,7 @@ export const useTechStore = create((set, get) => ({
         return res.json();
     },
 
-    // Assign next available tech
+    // Assign next available tech (via Python API)
     assignNext: async (clientName) => {
         const res = await fetch(`${API_URL}/assign`, {
             method: 'POST',
@@ -62,7 +78,7 @@ export const useTechStore = create((set, get) => ({
         return res.json();
     },
 
-    // Request specific tech
+    // Request specific tech (via Python API)
     requestTech: async (techId, clientName) => {
         const res = await fetch(`${API_URL}/assign`, {
             method: 'POST',
@@ -72,7 +88,7 @@ export const useTechStore = create((set, get) => ({
         return res.json();
     },
 
-    // Complete turn
+    // Complete turn (via Python API)
     completeTurn: async (techId, isRequest = false) => {
         console.log(`Sending complete turn for techId: ${techId}, isRequest: ${isRequest}`);
         const res = await fetch(`${API_URL}/complete`, {
@@ -87,12 +103,12 @@ export const useTechStore = create((set, get) => ({
         return res.json();
     },
 
-    // Skip turn (alias for completeTurn with isRequest=false, effectively moving to bottom)
+    // Skip turn (alias for completeTurn)
     skipTurn: async (techId) => {
         return get().completeTurn(techId, false);
     },
 
-    // Toggle technician active/inactive (for daily check-in roster)
+    // Toggle technician active/inactive (via Python API)
     toggleActive: async (techId) => {
         const res = await fetch(`${API_URL}/techs/toggle-active`, {
             method: 'POST',
@@ -102,7 +118,7 @@ export const useTechStore = create((set, get) => ({
         return res.json();
     },
 
-    // Reorder queue
+    // Reorder queue (via Python API)
     reorderQueue: async (techIds) => {
         const res = await fetch(`${API_URL}/techs/reorder`, {
             method: 'POST',
@@ -112,7 +128,7 @@ export const useTechStore = create((set, get) => ({
         return res.json();
     },
 
-    // Remove technician
+    // Remove technician (via Python API)
     removeTech: async (techId) => {
         const res = await fetch(`${API_URL}/techs/${techId}`, {
             method: 'DELETE',
@@ -121,7 +137,7 @@ export const useTechStore = create((set, get) => ({
         return res.json();
     },
 
-    // Take break
+    // Take break (via Python API)
     takeBreak: async (techId) => {
         const res = await fetch(`${API_URL}/techs/break`, {
             method: 'POST',
@@ -132,7 +148,7 @@ export const useTechStore = create((set, get) => ({
         return res.json();
     },
 
-    // Return from break
+    // Return from break (via Python API)
     returnFromBreak: async (techId) => {
         const res = await fetch(`${API_URL}/techs/return`, {
             method: 'POST',
