@@ -124,10 +124,10 @@ const SortableQueueItem = ({ id, tech, index, onRequest, onSkip, onClockOut, onT
                 </button>
                 <button
                     onClick={() => onTakeBreak(tech.id)}
-                    title="Take Break"
-                    className="p-1 md:p-2 bg-white text-orange-400 rounded-lg border border-orange-200 hover:bg-orange-50 hover:text-orange-500 shadow-sm transition-colors cursor-pointer h-7 w-7 md:h-11 md:w-11 flex items-center justify-center"
+                    title="Lunch Break"
+                    className="px-2 md:px-3 py-1 md:py-2 bg-white text-orange-500 rounded-lg border-2 border-orange-300 hover:bg-orange-50 hover:border-orange-400 shadow-sm transition-colors cursor-pointer flex items-center justify-center font-bold text-xs md:text-sm"
                 >
-                    <CoffeeIcon />
+                    LUNCH
                 </button>
             </div>
         </div>

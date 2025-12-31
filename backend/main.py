@@ -258,6 +258,7 @@ async def toggle_tech_active(req: ToggleActiveRequest):
     try:
         tech = turn_service.toggle_active_status(req.tech_id)
         # Save is_active change to Firestore
+        # Reset status_start_time when checking back in (is_active becomes True)
         if HAS_DATABASE:
             await db_save_tech({
                 "id": tech.id,
@@ -265,7 +266,7 @@ async def toggle_tech_active(req: ToggleActiveRequest):
                 "status": tech.status,
                 "queue_position": tech.queue_position,
                 "is_active": tech.is_active,
-            }, update_status_time=False)
+            }, update_status_time=tech.is_active)  # Reset timer when checking in
         await broadcast_update()
         return ToggleActiveResponse(
             tech_id=tech.id,
