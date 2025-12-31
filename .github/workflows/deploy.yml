@@ -63,10 +63,10 @@ jobs:
         with:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.GCP_REGION }}
+          # THÊM DÒNG DƯỚI NÀY: Chỉ định đích danh Project ID để nó không đoán bậy
+          project_id: ${{ env.GCP_PROJECT_ID }}
           image: ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          # Đã xóa sạch comment để tránh lỗi cú pháp
           flags: '--allow-unauthenticated --port=8080 --memory=512Mi --cpu=1 --min-instances=0 --max-instances=10 --execution-environment=gen2'
-
       - name: Show Service URL
         run: |
           echo "🚀 Deployed to: https://${{ env.SERVICE_NAME }}-${{ github.run_id }}.run.app"
