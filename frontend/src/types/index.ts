@@ -10,7 +10,7 @@ export interface Technician {
     status: TechnicianStatus;
     queue_position: number;
     is_active: boolean;
-    break_start_time?: string;
+    status_start_time?: string;
 }
 
 export interface AssignResponse {

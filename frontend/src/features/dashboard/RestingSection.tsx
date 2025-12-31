@@ -46,7 +46,7 @@ const useBreakTimer = (breakStartTime?: string) => {
 
 // Individual break card with timer
 const BreakCard = ({ tech, onReturn }: { tech: Technician; onReturn: (techId: number) => void }) => {
-    const elapsedSeconds = useBreakTimer(tech.break_start_time);
+    const elapsedSeconds = useBreakTimer(tech.status_start_time);
 
     return (
         <div className="bg-orange-50 p-3 md:p-4 rounded-xl border-2 border-orange-300 flex items-center justify-between gap-3 shadow-sm">
