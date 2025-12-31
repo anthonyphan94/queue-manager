@@ -15,7 +15,7 @@ interface WorkingGridProps {
 const WorkingTimer = ({ statusStartTime }: { statusStartTime?: string | null }) => {
     const elapsedSeconds = useStatusTimer(statusStartTime);
     return (
-        <div className="text-xs md:text-sm text-slate-400 font-medium mt-1">
+        <div className="text-xs md:text-sm text-orange-600 font-medium mt-1">
             Working: {formatDuration(elapsedSeconds)}
         </div>
     );

@@ -33,7 +33,7 @@ interface TechTimerProps {
 const TechTimer = ({ statusStartTime, label }: TechTimerProps) => {
     const elapsedSeconds = useStatusTimer(statusStartTime);
     return (
-        <span className="text-xs text-slate-400 font-medium">
+        <span className="text-xs text-orange-600 font-medium">
             {label}: {formatDuration(elapsedSeconds)}
         </span>
     );
