@@ -104,18 +104,28 @@ export const StaffCheckInModal = ({
                                     onChange={(e) => setNewTechName(e.target.value)}
                                     placeholder="Enter technician name..."
                                     autoFocus
-                                    className="flex-1 px-3 py-2 border border-rose-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-transparent text-slate-800 text-base min-h-[44px]"
+                                    className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-transparent text-slate-800 text-base min-h-[44px]"
+                                    style={{ borderColor: 'var(--color-border)' }}
                                 />
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 bg-rose-500 text-white font-semibold rounded-lg hover:bg-rose-600 transition-colors min-h-[44px]"
+                                    className="px-4 py-2 font-semibold rounded-lg transition-colors min-h-[44px] border-2"
+                                    style={{
+                                        backgroundColor: 'var(--color-surface)',
+                                        borderColor: 'var(--color-primary)',
+                                        color: 'var(--color-primary)'
+                                    }}
                                 >
                                     Add
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => { setShowAddInput(false); setNewTechName(''); }}
-                                    className="px-4 py-2 bg-slate-100 text-slate-500 font-semibold rounded-lg hover:bg-slate-200 transition-colors min-h-[44px]"
+                                    className="px-4 py-2 font-semibold rounded-lg transition-colors min-h-[44px]"
+                                    style={{
+                                        backgroundColor: 'transparent',
+                                        color: 'var(--color-text-secondary)'
+                                    }}
                                 >
                                     Cancel
                                 </button>
@@ -134,26 +144,49 @@ export const StaffCheckInModal = ({
                     {/* Technician List */}
                     <div className="space-y-1">
                         {technicians.map((tech) => (
-                            <div key={tech.id} className="selection-row-container">
-                                <button
-                                    onClick={() => onToggle(tech.id)}
-                                    className={`selection-row flex-1 ${tech.is_active ? 'selected' : ''}`}
-                                >
-                                    <span className="selection-row-name">{tech.name}</span>
+                            <div
+                                key={tech.id}
+                                className={`
+                                    relative flex items-center justify-between p-0 overflow-hidden rounded-xl border transition-all duration-200
+                                    ${tech.is_active
+                                        ? 'bg-rose-50 border-rose-200 active:bg-rose-100'
+                                        : 'bg-white border-slate-200 active:bg-slate-50'
+                                    }
+                                `}
+                                onClick={() => onToggle(tech.id)}
+                            >
+                                {/* Main Click Area for Toggling */}
+                                <div className="flex-1 flex items-center h-14 pl-4 cursor-pointer">
+                                    {/* Left Indicator (Selected only) */}
                                     {tech.is_active && (
-                                        <CheckIcon className="selection-row-check" />
+                                        <div className="absolute left-0 top-3 bottom-3 w-1 bg-rose-600 rounded-r shadow-sm" />
                                     )}
-                                </button>
 
-                                {/* Remove Button - always visible, HIG compliant */}
-                                <button
-                                    onClick={() => onRemove(tech.id)}
-                                    className="min-h-[44px] min-w-[44px] px-3 text-rose-500 bg-white border-2 border-rose-200 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-300 rounded-lg transition-colors flex items-center justify-center text-xs font-semibold"
-                                    title="Remove Technician"
-                                    aria-label={`Remove ${tech.name}`}
-                                >
-                                    Remove
-                                </button>
+                                    <span className={`text-base font-semibold truncate ${tech.is_active ? 'text-slate-900' : 'text-slate-700'}`}>
+                                        {tech.name}
+                                    </span>
+                                </div>
+
+                                {/* Right Actions Area */}
+                                <div className="flex items-center pr-4 gap-3">
+                                    {/* Selected Checkmark */}
+                                    {tech.is_active && (
+                                        <CheckIcon className="w-6 h-6 text-rose-600" />
+                                    )}
+
+                                    {/* Remove Button (Subtle Text) */}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onRemove(tech.id);
+                                        }}
+                                        className="text-red-600 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50 active:bg-red-100 transition-colors"
+                                        title="Remove Technician"
+                                        aria-label={`Remove ${tech.name}`}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
                             </div>
                         ))}
 
@@ -165,11 +198,14 @@ export const StaffCheckInModal = ({
                     </div>
                 </div>
 
-                {/* Sticky Footer */}
                 <div className="bottom-sheet-footer">
                     <button
                         onClick={onClose}
-                        className="w-full min-h-[48px] bg-rose-500 text-white font-bold rounded-xl hover:bg-rose-600 transition-all duration-200 shadow-md text-base"
+                        className="w-full min-h-[48px] font-bold rounded-xl transition-all duration-200 shadow-md text-base"
+                        style={{
+                            backgroundColor: 'var(--color-primary)',
+                            color: 'var(--color-text-inverse)'
+                        }}
                     >
                         Done
                     </button>

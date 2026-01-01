@@ -29,6 +29,39 @@
 
     /* Queue item height */
     --queue-item-height: 70px;
+
+    /* === Semantic Color System === */
+
+    /* Surfaces */
+    --color-surface: #FFFFFF;
+    --color-surface-subtle: #F7F8FA;
+    --color-border: rgba(17, 24, 39, 0.12);
+
+    /* Text */
+    --color-text-primary: #111827;
+    --color-text-secondary: rgba(17, 24, 39, 0.65);
+    --color-text-inverse: #FFFFFF;
+
+    /* Brand / Primary (pink - only for Done button fill) */
+    --color-primary: #e11d48;
+    --color-primary-pressed: #be123c;
+    --color-primary-soft: #fff1f2;
+    /* rose-50 */
+    --color-primary-border: #fecdd3;
+    /* rose-200 */
+
+    /* Destructive (red - for Remove) */
+    --color-destructive: #DC2626;
+    --color-destructive-pressed: #B91C1C;
+    --color-destructive-soft: rgba(220, 38, 38, 0.08);
+
+    /* Selected state */
+    --color-selected-bg: var(--color-primary-soft);
+    --color-selected-border: var(--color-primary-border);
+
+    /* Radii */
+    --radius-button: 14px;
+    --shadow-sheet: 0 6px 18px rgba(17, 24, 39, 0.04);
 }
 
 /* Mobile-specific overrides (iPhone) */
@@ -277,83 +310,43 @@ body.modal-open {
     z-index: 10;
 }
 
-/* Selection row container */
+/* Selection row styles handled via Tailwind/inline for distinct structure */
 .selection-row-container {
-    display: flex;
-    align-items: center;
-    gap: 4px;
+    /* No specialized container styles needed, handled in component */
 }
 
-/* Selection row for technicians - Modern dark style */
-.selection-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 52px;
-    padding: 12px 16px;
-    border-radius: 14px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    background-color: #ff19007a;
-    border: none;
-}
-
-.selection-row:hover,
-.selection-row:active {
-    background-color: #9f1239;
-}
-
-.selection-row.selected {
-    background-color: #ff19007a;
-}
-
-.selection-row-name {
-    font-size: 16px;
-    font-weight: 600;
-    color: white;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.selection-row-check {
-    width: 24px;
-    height: 24px;
-    flex-shrink: 0;
-    color: white;
-}
-
-/* Action row (Add New Technician) */
+/* Action row (Add New Technician) - Secondary outline style */
 .action-row {
     display: flex;
     align-items: center;
     gap: 12px;
     min-height: 52px;
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: var(--radius-button);
     cursor: pointer;
-    background-color: #fef2f2;
-    border: 2px solid #fecaca;
+    background-color: var(--color-surface);
+    border: 2px solid var(--color-primary);
     transition: all 0.15s ease;
 }
 
-.action-row:hover,
+.action-row:hover {
+    background-color: var(--color-primary-soft);
+}
+
 .action-row:active {
-    background-color: #fee2e2;
-    border-color: #fca5a5;
+    transform: scale(0.99);
+    background-color: var(--color-primary-soft);
 }
 
 .action-row-icon {
     width: 20px;
     height: 20px;
-    color: #f43f5e;
+    color: var(--color-primary);
     flex-shrink: 0;
 }
 
 .action-row-text {
     font-size: 16px;
     font-weight: 600;
-    color: #f43f5e;
+    color: var(--color-primary);
 }
