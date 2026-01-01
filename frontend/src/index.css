@@ -45,7 +45,8 @@
     /* Brand / Primary (pink - only for Done button fill) */
     --color-primary: #e11d48;
     --color-primary-pressed: #be123c;
-    --color-primary-soft: #fff1f2;
+    --color-primary-soft: #ffe4e6;
+    /* rose-100 (darker than rose-50) */
     /* rose-50 */
     --color-primary-border: #fecdd3;
     /* rose-200 */
