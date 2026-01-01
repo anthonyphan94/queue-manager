@@ -294,7 +294,7 @@ body.modal-open {
     border-radius: 14px;
     cursor: pointer;
     transition: all 0.15s ease;
-    background-color: #be123c;
+    background-color: #ff19007a;
     border: none;
 }
 
@@ -304,7 +304,7 @@ body.modal-open {
 }
 
 .selection-row.selected {
-    background-color: #f43f5e;
+    background-color: #ff19007a;
 }
 
 .selection-row-name {
@@ -335,7 +335,7 @@ body.modal-open {
     border-radius: 12px;
     cursor: pointer;
     background-color: #fef2f2;
-    border: 2px dashed #fecaca;
+    border: 2px solid #fecaca;
     transition: all 0.15s ease;
 }
 
