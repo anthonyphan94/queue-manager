@@ -177,3 +177,167 @@ textarea {
     color: #ea580c;
     font-family: ui-monospace, monospace;
 }
+
+/* ============================================
+   Bottom Sheet Modal Styles
+   ============================================ */
+
+/* Body scroll lock when modal is open */
+body.modal-open {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+
+/* Backdrop */
+.bottom-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    z-index: 50;
+    display: flex;
+    align-items: flex-end;
+}
+
+/* Sheet container */
+.bottom-sheet-container {
+    position: relative;
+    width: 100%;
+    background: white;
+    border-radius: 24px 24px 0 0;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Desktop: center modal */
+@media (min-width: 768px) {
+    .bottom-sheet-backdrop {
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+    }
+
+    .bottom-sheet-container {
+        max-width: 600px;
+        max-height: 80vh;
+        border-radius: 24px;
+    }
+}
+
+/* Drag handle */
+.bottom-sheet-handle {
+    width: 48px;
+    height: 4px;
+    background-color: #cbd5e1;
+    border-radius: 2px;
+    margin: 8px auto 4px;
+}
+
+/* Sticky header */
+.bottom-sheet-header {
+    position: sticky;
+    top: 0;
+    background: white;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 8px 16px 12px;
+    border-radius: 24px 24px 0 0;
+    z-index: 10;
+}
+
+/* Scrollable content */
+.bottom-sheet-content {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px;
+}
+
+/* Sticky footer */
+.bottom-sheet-footer {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    border-top: 1px solid #f1f5f9;
+    padding: 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: 10;
+}
+
+/* Selection row for technicians */
+.selection-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 52px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    border: 1px solid transparent;
+}
+
+.selection-row:hover,
+.selection-row:active {
+    background-color: #f8fafc;
+}
+
+.selection-row.selected {
+    background-color: #fef2f2;
+    border-color: #fecaca;
+}
+
+.selection-row-name {
+    font-size: 16px;
+    font-weight: 500;
+    color: #1e293b;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.selection-row-check {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    color: #f43f5e;
+}
+
+/* Action row (Add New Technician) */
+.action-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 52px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    background-color: #fef2f2;
+    border: 2px dashed #fecaca;
+    transition: all 0.15s ease;
+}
+
+.action-row:hover,
+.action-row:active {
+    background-color: #fee2e2;
+    border-color: #fca5a5;
+}
+
+.action-row-icon {
+    width: 20px;
+    height: 20px;
+    color: #f43f5e;
+    flex-shrink: 0;
+}
+
+.action-row-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: #f43f5e;
+}
