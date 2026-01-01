@@ -45,15 +45,18 @@ interface ActionButtonProps {
     onClick: () => void;
     title: string;
     children: React.ReactNode;
-    variant?: 'default' | 'lunch';
+    variant?: 'default' | 'lunch' | 'assign';
 }
 
 const ActionButton = ({ onClick, title, children, variant = 'default' }: ActionButtonProps) => {
     const baseClasses = "min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-colors cursor-pointer";
 
-    const variantClasses = variant === 'lunch'
-        ? "px-3 bg-white text-orange-500 border-2 border-orange-300 hover:bg-orange-50 hover:border-orange-400 font-bold text-xs"
-        : "w-9 h-9 bg-white text-slate-400 border border-rose-200 hover:bg-rose-50 hover:text-rose-500";
+    const variantClasses =
+        variant === 'lunch'
+            ? "px-3 bg-white text-orange-500 border-2 border-orange-300 hover:bg-orange-50 hover:border-orange-400 font-bold text-xs"
+            : variant === 'assign'
+                ? "px-3 bg-white text-emerald-500 border-2 border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400 font-bold text-xs"
+                : "w-9 h-9 bg-white text-slate-400 border border-rose-200 hover:bg-rose-50 hover:text-rose-500";
 
     return (
         <button
@@ -134,8 +137,8 @@ const SortableQueueItem = ({ id, tech, index, onRequest, onSkip, onClockOut, onT
                 <ActionButton onClick={() => onClockOut(tech.id)} title="Clock Out">
                     <ClockOutIcon />
                 </ActionButton>
-                <ActionButton onClick={() => onRequest(tech.id)} title="Request Assign">
-                    <RequestIcon />
+                <ActionButton onClick={() => onRequest(tech.id)} title="Request Assign" variant="assign">
+                    Assign
                 </ActionButton>
                 <ActionButton onClick={() => onSkip(tech.id)} title="Skip to Bottom">
                     <SkipIcon />
