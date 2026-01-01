@@ -147,12 +147,8 @@ export const StaffCheckInModal = ({
 
                                 {/* Remove Button - always visible, HIG compliant */}
                                 <button
-                                    onClick={() => {
-                                        if (window.confirm(`Remove ${tech.name}?`)) {
-                                            onRemove(tech.id);
-                                        }
-                                    }}
-                                    className="min-h-[44px] min-w-[44px] px-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors flex items-center justify-center text-xs font-medium"
+                                    onClick={() => onRemove(tech.id)}
+                                    className="min-h-[44px] min-w-[44px] px-3 text-rose-500 bg-white border-2 border-rose-200 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-300 rounded-lg transition-colors flex items-center justify-center text-xs font-semibold"
                                     title="Remove Technician"
                                     aria-label={`Remove ${tech.name}`}
                                 >

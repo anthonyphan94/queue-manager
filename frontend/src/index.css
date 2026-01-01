@@ -201,16 +201,25 @@ body.modal-open {
     align-items: flex-end;
 }
 
-/* Sheet container */
+/* Sheet container - Full height on mobile */
 .bottom-sheet-container {
     position: relative;
     width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
     background: white;
-    border-radius: 24px 24px 0 0;
-    max-height: 90vh;
+    border-radius: 0;
     display: flex;
     flex-direction: column;
     box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Fallback for browsers without dvh support */
+@supports not (height: 100dvh) {
+    .bottom-sheet-container {
+        height: 100vh;
+        max-height: 100vh;
+    }
 }
 
 /* Desktop: center modal */
@@ -244,7 +253,7 @@ body.modal-open {
     background: white;
     border-bottom: 1px solid #f1f5f9;
     padding: 8px 16px 12px;
-    border-radius: 24px 24px 0 0;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
     z-index: 10;
 }
 
@@ -275,33 +284,33 @@ body.modal-open {
     gap: 4px;
 }
 
-/* Selection row for technicians */
+/* Selection row for technicians - Modern dark style */
 .selection-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     min-height: 52px;
-    padding: 10px 12px;
-    border-radius: 12px;
+    padding: 12px 16px;
+    border-radius: 14px;
     cursor: pointer;
-    transition: background-color 0.15s ease;
-    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    background-color: #be123c;
+    border: none;
 }
 
 .selection-row:hover,
 .selection-row:active {
-    background-color: #f8fafc;
+    background-color: #9f1239;
 }
 
 .selection-row.selected {
-    background-color: #fef2f2;
-    border-color: #fecaca;
+    background-color: #f43f5e;
 }
 
 .selection-row-name {
     font-size: 16px;
-    font-weight: 500;
-    color: #1e293b;
+    font-weight: 600;
+    color: white;
     flex: 1;
     min-width: 0;
     overflow: hidden;
@@ -313,7 +322,7 @@ body.modal-open {
     width: 24px;
     height: 24px;
     flex-shrink: 0;
-    color: #f43f5e;
+    color: white;
 }
 
 /* Action row (Add New Technician) */
