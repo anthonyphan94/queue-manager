@@ -1,7 +1,9 @@
 /**
- * RestingSection - Displays technicians on break in a compact grid layout.
+ * RestingSection - Displays technicians on break in a compact horizontal carousel.
+ * iOS HIG compliant: compact chips, horizontal scroll, max height constraint.
  */
 
+import { useState } from 'react';
 import type { Technician } from '../../types';
 import { useStatusTimer, formatDuration } from '../../hooks/useStatusTimer';
 
@@ -10,46 +12,89 @@ interface RestingSectionProps {
     onReturn: (techId: number) => void;
 }
 
-// Compact tile for technician on break
-const BreakTile = ({ tech, onReturn }: { tech: Technician; onReturn: (techId: number) => void }) => {
+// Compact chip for technician on break
+const BreakChip = ({ tech, onReturn }: { tech: Technician; onReturn: (techId: number) => void }) => {
     const elapsedSeconds = useStatusTimer(tech.status_start_time);
 
     return (
         <button
             onClick={() => onReturn(tech.id)}
-            title={`Click to return ${tech.name} from break`}
-            className="bg-orange-50 p-3 rounded-xl border border-orange-200 hover:bg-orange-100 hover:border-orange-300 transition-all duration-200 cursor-pointer flex flex-col items-center gap-1 shadow-sm min-h-[44px]"
+            title={`Tap to return ${tech.name} from break`}
+            className="break-chip"
         >
-            <span className="font-bold text-base text-slate-800 truncate w-full text-center">
-                {tech.name}
-            </span>
-            <span className="text-sm text-orange-600 font-mono font-semibold">
-                {formatDuration(elapsedSeconds)}
-            </span>
+            <span className="break-chip-name">{tech.name}</span>
+            <span className="break-chip-time">{formatDuration(elapsedSeconds)}</span>
         </button>
     );
 };
 
+// Expanded grid view (shown when "See all" is tapped)
+const ExpandedGrid = ({
+    onBreak,
+    onReturn,
+    onCollapse
+}: {
+    onBreak: Technician[];
+    onReturn: (techId: number) => void;
+    onCollapse: () => void;
+}) => {
+    return (
+        <div className="p-2 md:p-3">
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {onBreak.map((tech) => (
+                    <BreakChip key={tech.id} tech={tech} onReturn={onReturn} />
+                ))}
+            </div>
+            <button
+                onClick={onCollapse}
+                className="mt-2 w-full text-center text-orange-600 text-xs font-medium py-2 min-h-[44px] flex items-center justify-center"
+            >
+                Show less
+            </button>
+        </div>
+    );
+};
+
 export const RestingSection = ({ onBreak, onReturn }: RestingSectionProps) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+
     if (onBreak.length === 0) return null;
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-3xl shadow-sm border border-orange-200 overflow-hidden">
-            {/* Header - Static, doesn't scroll */}
-            <div className="shrink-0 px-3 md:px-4 py-2 md:py-3 bg-orange-50 border-b border-orange-100">
-                <h2 className="text-sm md:text-base font-bold text-orange-700">
-                    🍴 On Break ({onBreak.length})
+        <div
+            className="flex flex-col bg-white rounded-2xl shadow-sm border border-orange-200 overflow-hidden"
+            style={{ maxHeight: isExpanded ? 'none' : 'var(--on-break-max-height)' }}
+        >
+            {/* Header - Always visible */}
+            <div className="shrink-0 px-3 py-2 bg-orange-50 border-b border-orange-100 flex items-center justify-between">
+                <h2 className="text-sm font-bold text-orange-700 flex items-center gap-1.5">
+                    <span>🍴</span>
+                    <span>On Break ({onBreak.length})</span>
                 </h2>
+                {onBreak.length > 3 && (
+                    <button
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="text-xs text-orange-600 font-medium px-2 py-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    >
+                        {isExpanded ? 'Collapse' : 'See all'}
+                    </button>
+                )}
             </div>
 
-            {/* Scrollable Grid */}
-            <div className="flex-1 overflow-y-auto p-2 md:p-3">
-                <div className="grid grid-cols-2 gap-2">
+            {/* Content - Carousel or Expanded Grid */}
+            {isExpanded ? (
+                <ExpandedGrid
+                    onBreak={onBreak}
+                    onReturn={onReturn}
+                    onCollapse={() => setIsExpanded(false)}
+                />
+            ) : (
+                <div className="on-break-carousel scroll-x-ios">
                     {onBreak.map((tech) => (
-                        <BreakTile key={tech.id} tech={tech} onReturn={onReturn} />
+                        <BreakChip key={tech.id} tech={tech} onReturn={onReturn} />
                     ))}
                 </div>
-            </div>
+            )}
         </div>
     );
 };

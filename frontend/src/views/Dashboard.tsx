@@ -1,5 +1,6 @@
 /**
  * Dashboard - Main dashboard view for the Salon Turn Manager.
+ * iOS HIG compliant: single page scroll, safe areas, compact sections.
  * 
  * This component uses the useTurnLogic hook for all business logic
  * and composes the UI from atomic feature components.
@@ -36,7 +37,6 @@ export const Dashboard = () => {
 
     // Modal States
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [requestModalData, setRequestModalData] = useState<{ techId: number } | null>(null);
 
     // Handlers
     const handleNextTurn = async () => {
@@ -81,21 +81,21 @@ export const Dashboard = () => {
     };
 
     return (
-        <div className="flex flex-col h-screen font-sans text-slate-800" style={{ backgroundColor: '#f3dadc' }}>
+        <div className="flex flex-col min-h-screen font-sans text-slate-800 pt-safe" style={{ backgroundColor: '#f3dadc' }}>
             {/* --- TOP BAR --- */}
-            <div className="h-14 md:h-16 bg-white shadow-md z-30 flex items-center justify-between px-3 md:px-6 shrink-0">
-                <div className="flex items-center gap-2 md:gap-3">
-                    <img src={logo} alt="Marilyn's Beauty Lounge" className="h-10 md:h-12 w-auto" />
-                    <h1 className="text-lg md:text-2xl font-brand text-slate-800 hidden sm:block">MARILYN BEAUTY LOUNGE</h1>
+            <header className="h-12 md:h-14 bg-white shadow-sm z-30 flex items-center justify-between px-3 md:px-6 shrink-0 sticky top-0">
+                <div className="flex items-center gap-2">
+                    <img src={logo} alt="Marilyn's Beauty Lounge" className="h-8 md:h-10 w-auto" />
+                    <h1 className="text-base md:text-xl font-brand text-slate-800 hidden sm:block">MARILYN BEAUTY LOUNGE</h1>
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
-                    className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-xl transition-colors flex items-center gap-2 font-semibold"
+                    className="min-h-[44px] min-w-[44px] px-2 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-lg transition-colors flex items-center gap-2 font-semibold text-sm"
                 >
                     <TechniciansIcon />
                     <span className="hidden sm:inline">Technicians</span>
                 </button>
-            </div>
+            </header>
 
             {/* --- MODALS --- */}
             <StaffCheckInModal
@@ -107,13 +107,15 @@ export const Dashboard = () => {
                 onRemove={handleRemoveTech}
             />
 
-            {/* --- MAIN CONTENT --- */}
-            <main className="flex-1 p-3 md:p-6 overflow-auto pb-safe">
-                <div className="flex flex-col lg:flex-row gap-4 md:gap-6 h-full">
-                    {/* Left Panel: Sidebar with Queue + Resting */}
-                    <div className="w-full lg:w-[40%] flex flex-col gap-3 md:gap-4 h-full overflow-hidden">
-                        {/* Top Section: Queue - takes remaining space */}
-                        <div className="flex-1 min-h-0 overflow-hidden">
+            {/* --- MAIN CONTENT --- Single page scroll on mobile */}
+            <main className="flex-1 p-2 md:p-4 pb-safe px-safe">
+                {/* Mobile: Stack vertically, Desktop: Two columns */}
+                <div className="flex flex-col lg:flex-row gap-3 md:gap-4">
+
+                    {/* Left Panel: Queue + On Break */}
+                    <div className="w-full lg:w-[40%] flex flex-col gap-2 md:gap-3">
+                        {/* Queue Section - Primary focus */}
+                        <div className="min-h-[50vh] lg:min-h-0 lg:flex-1">
                             <QueueList
                                 queue={queue}
                                 onNextTurn={handleNextTurn}
@@ -125,14 +127,12 @@ export const Dashboard = () => {
                             />
                         </div>
 
-                        {/* Bottom Section: On Break - anchored at bottom with max height */}
+                        {/* On Break Section - Compact carousel (only if people on break) */}
                         {onBreak.length > 0 && (
-                            <div className="shrink-0 max-h-[35%] overflow-hidden">
-                                <RestingSection
-                                    onBreak={onBreak}
-                                    onReturn={handleReturnFromBreak}
-                                />
-                            </div>
+                            <RestingSection
+                                onBreak={onBreak}
+                                onReturn={handleReturnFromBreak}
+                            />
                         )}
                     </div>
 

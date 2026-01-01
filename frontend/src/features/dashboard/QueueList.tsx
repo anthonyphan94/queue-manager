@@ -1,5 +1,6 @@
 /**
  * QueueList - Handles the drag-and-drop queue list.
+ * iOS HIG compliant: compact rows, 44px touch targets, optimized for mobile.
  */
 
 import { useState, useEffect } from 'react';
@@ -20,7 +21,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Technician } from '../../types';
-import { RequestIcon, SkipIcon, ClockOutIcon, CoffeeIcon } from './Icons';
+import { RequestIcon, SkipIcon, ClockOutIcon } from './Icons';
 import NextTurnHero from './NextTurnHero';
 import { useStatusTimer, formatDuration } from '../../hooks/useStatusTimer';
 
@@ -33,9 +34,35 @@ interface TechTimerProps {
 const TechTimer = ({ statusStartTime, label }: TechTimerProps) => {
     const elapsedSeconds = useStatusTimer(statusStartTime);
     return (
-        <span className="text-xs text-orange-600 font-medium">
+        <span className="text-[11px] text-orange-600 font-medium">
             {label}: {formatDuration(elapsedSeconds)}
         </span>
+    );
+};
+
+// --- Compact Action Button ---
+interface ActionButtonProps {
+    onClick: () => void;
+    title: string;
+    children: React.ReactNode;
+    variant?: 'default' | 'lunch';
+}
+
+const ActionButton = ({ onClick, title, children, variant = 'default' }: ActionButtonProps) => {
+    const baseClasses = "min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-colors cursor-pointer";
+
+    const variantClasses = variant === 'lunch'
+        ? "px-3 bg-white text-orange-500 border-2 border-orange-300 hover:bg-orange-50 hover:border-orange-400 font-bold text-xs"
+        : "w-9 h-9 bg-white text-slate-400 border border-rose-200 hover:bg-rose-50 hover:text-rose-500";
+
+    return (
+        <button
+            onClick={onClick}
+            title={title}
+            className={`${baseClasses} ${variantClasses}`}
+        >
+            {children}
+        </button>
     );
 };
 
@@ -75,60 +102,47 @@ const SortableQueueItem = ({ id, tech, index, onRequest, onSkip, onClockOut, onT
             {...attributes}
             {...listeners}
             className={`
-                group relative flex flex-col md:flex-row md:items-center md:justify-between p-2.5 md:p-4 rounded-xl md:rounded-2xl transition-all duration-200 bg-white gap-2 md:gap-0
-                ${isDragging ? 'shadow-xl scale-105 z-50 ring-2 ring-rose-300' : 'shadow-sm border border-rose-100/50'}
-                ${isFirst ? 'border-l-4 md:border-l-8 border-rose-500' : 'hover:border-rose-200'}
+                group relative flex items-center justify-between p-2 rounded-xl transition-all duration-200 bg-white gap-2
+                ${isDragging ? 'shadow-xl scale-[1.02] z-50 ring-2 ring-rose-300' : 'shadow-sm border border-rose-100/50'}
+                ${isFirst ? 'border-l-4 border-rose-500' : 'hover:border-rose-200'}
             `}
         >
-            {/* Position & Name */}
-            <div className="flex items-center gap-2 md:gap-4 pointer-events-none min-w-0">
+            {/* Left: Position Badge + Name + Timer */}
+            <div className="flex items-center gap-2 pointer-events-none min-w-0 flex-1">
+                {/* Order badge - compact */}
                 <div className={`
-                    w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-full font-bold text-sm md:text-lg shrink-0
+                    w-6 h-6 flex items-center justify-center rounded-full font-bold text-xs shrink-0
                     ${isFirst ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-500'}
                 `}>
                     {index + 1}
                 </div>
+
+                {/* Name and timer */}
                 <div className="flex flex-col min-w-0">
-                    <span className={`font-bold truncate ${isFirst ? 'text-lg md:text-3xl text-slate-800' : 'text-base md:text-xl text-slate-800'}`}>
+                    <span className={`font-semibold truncate leading-tight ${isFirst ? 'text-base text-slate-800' : 'text-sm text-slate-700'}`}>
                         {tech.name}
                     </span>
                     <TechTimer statusStartTime={tech.status_start_time} label="Waiting" />
                 </div>
             </div>
 
-            {/* Action Buttons - Full width row on mobile, inline on desktop */}
+            {/* Right: Action Buttons */}
             <div
-                className={`flex gap-2 transition-opacity w-full md:w-auto justify-between md:justify-end shrink-0 ${isDragging ? 'opacity-0' : 'opacity-100'}`}
+                className={`flex items-center gap-1 shrink-0 ${isDragging ? 'opacity-0' : 'opacity-100'}`}
                 onPointerDown={(e) => e.stopPropagation()}
             >
-                <button
-                    onClick={() => onClockOut(tech.id)}
-                    title="Clock Out"
-                    className="p-2 bg-white text-slate-400 rounded-lg border border-rose-200 hover:bg-rose-50 hover:text-rose-500 shadow-sm transition-colors cursor-pointer h-11 w-11 flex items-center justify-center"
-                >
+                <ActionButton onClick={() => onClockOut(tech.id)} title="Clock Out">
                     <ClockOutIcon />
-                </button>
-                <button
-                    onClick={() => onRequest(tech.id)}
-                    title="Request Assign"
-                    className="p-2 bg-white text-rose-500 rounded-lg border border-rose-200 hover:bg-rose-50 shadow-sm transition-colors cursor-pointer h-11 w-11 flex items-center justify-center"
-                >
+                </ActionButton>
+                <ActionButton onClick={() => onRequest(tech.id)} title="Request Assign">
                     <RequestIcon />
-                </button>
-                <button
-                    onClick={() => onSkip(tech.id)}
-                    title="Skip to Bottom"
-                    className="p-2 bg-white text-slate-400 rounded-lg border border-rose-200 hover:bg-slate-50 hover:text-slate-600 shadow-sm transition-colors cursor-pointer h-11 w-11 flex items-center justify-center"
-                >
+                </ActionButton>
+                <ActionButton onClick={() => onSkip(tech.id)} title="Skip to Bottom">
                     <SkipIcon />
-                </button>
-                <button
-                    onClick={() => onTakeBreak(tech.id)}
-                    title="Lunch Break"
-                    className="flex-1 md:flex-none px-3 py-2 bg-white text-orange-500 rounded-lg border-2 border-orange-300 hover:bg-orange-50 hover:border-orange-400 shadow-sm transition-colors cursor-pointer flex items-center justify-center font-bold text-sm min-h-[44px]"
-                >
+                </ActionButton>
+                <ActionButton onClick={() => onTakeBreak(tech.id)} title="Lunch Break" variant="lunch">
                     LUNCH
-                </button>
+                </ActionButton>
             </div>
         </div>
     );
@@ -185,12 +199,12 @@ export const QueueList = ({ queue, onNextTurn, onRequest, onSkip, onClockOut, on
     };
 
     return (
-        <div className="w-full h-full flex flex-col bg-white rounded-3xl shadow-sm border border-rose-200/60 overflow-hidden">
+        <div className="w-full h-full flex flex-col bg-white rounded-2xl shadow-sm border border-rose-200/60 overflow-hidden">
             {/* Header: NEXT TURN Button */}
             <NextTurnHero queueLength={queueItems.length} onNextTurn={onNextTurn} />
 
             {/* Queue List with Drag and Drop */}
-            <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-2 md:space-y-3">
+            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -216,7 +230,7 @@ export const QueueList = ({ queue, onNextTurn, onRequest, onSkip, onClockOut, on
                 </DndContext>
 
                 {queueItems.length === 0 && (
-                    <div className="text-center py-20 text-rose-300 italic">
+                    <div className="text-center py-12 text-rose-300 italic text-sm">
                         No technicians available. Please add technicians to the queue.
                     </div>
                 )}
