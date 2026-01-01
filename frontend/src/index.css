@@ -16,3 +16,46 @@ body {
     font-weight: 700;
     letter-spacing: 0.15em;
 }
+
+/* Mobile Sidebar Slide-in Animation */
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+.animate-slide-in-left {
+    animation: slideInLeft 0.3s ease-out forwards;
+}
+
+/* Mobile-friendly form inputs (prevent iOS auto-zoom) */
+input,
+select,
+textarea {
+    font-size: 16px;
+}
+
+/* Touch-friendly button sizing utility */
+.touch-target {
+    min-height: 44px;
+}
+
+/* Horizontal scroll wrapper for charts */
+.chart-scroll-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* iOS Safe Area Padding */
+.pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+/* iOS Grouped Background Color */
+.bg-ios-grouped {
+    background-color: #F2F2F7;
+}

@@ -18,7 +18,7 @@ const BreakTile = ({ tech, onReturn }: { tech: Technician; onReturn: (techId: nu
         <button
             onClick={() => onReturn(tech.id)}
             title={`Click to return ${tech.name} from break`}
-            className="bg-orange-50 p-3 rounded-xl border border-orange-200 hover:bg-orange-100 hover:border-orange-300 transition-all duration-200 cursor-pointer flex flex-col items-center gap-1 shadow-sm"
+            className="bg-orange-50 p-3 rounded-xl border border-orange-200 hover:bg-orange-100 hover:border-orange-300 transition-all duration-200 cursor-pointer flex flex-col items-center gap-1 shadow-sm min-h-[44px]"
         >
             <span className="font-bold text-base text-slate-800 truncate w-full text-center">
                 {tech.name}

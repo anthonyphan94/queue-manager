@@ -23,7 +23,7 @@ const WorkingTimer = ({ statusStartTime }: { statusStartTime?: string | null }) 
 
 export const WorkingGrid = ({ working, onFinish }: WorkingGridProps) => {
     return (
-        <div className="w-full lg:w-[60%] flex flex-col bg-white rounded-3xl shadow-sm border border-rose-100/50 overflow-hidden min-h-[40vh] lg:min-h-0">
+        <div className="w-full lg:w-[60%] flex flex-col bg-white rounded-3xl shadow-sm border border-rose-200/60 overflow-hidden min-h-[40vh] lg:min-h-0">
             {/* Header */}
             <div className="p-4 md:p-6 border-b border-rose-100 z-10 shrink-0">
                 <h2 className="text-lg md:text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -49,7 +49,7 @@ export const WorkingGrid = ({ working, onFinish }: WorkingGridProps) => {
 
                             <button
                                 onClick={() => onFinish(tech.id)}
-                                className="mt-auto w-full min-h-[40px] md:min-h-[44px] bg-white border border-rose-200 text-rose-500 font-semibold text-sm md:text-base rounded-xl hover:bg-rose-50 transition-all duration-200 flex items-center justify-center gap-1 md:gap-2"
+                                className="mt-auto w-full min-h-[44px] bg-white border border-rose-200 text-rose-500 font-semibold text-sm md:text-base rounded-xl hover:bg-rose-50 transition-all duration-200 flex items-center justify-center gap-1 md:gap-2"
                             >
                                 <FinishIcon />
                                 FINISH

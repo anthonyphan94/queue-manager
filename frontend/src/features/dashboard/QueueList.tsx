@@ -75,7 +75,7 @@ const SortableQueueItem = ({ id, tech, index, onRequest, onSkip, onClockOut, onT
             {...attributes}
             {...listeners}
             className={`
-                group relative flex items-center justify-between p-3 md:p-4 rounded-2xl transition-all duration-200 bg-white
+                group relative flex flex-col md:flex-row md:items-center md:justify-between p-2.5 md:p-4 rounded-xl md:rounded-2xl transition-all duration-200 bg-white gap-2 md:gap-0
                 ${isDragging ? 'shadow-xl scale-105 z-50 ring-2 ring-rose-300' : 'shadow-sm border border-rose-100/50'}
                 ${isFirst ? 'border-l-4 md:border-l-8 border-rose-500' : 'hover:border-rose-200'}
             `}
@@ -83,49 +83,49 @@ const SortableQueueItem = ({ id, tech, index, onRequest, onSkip, onClockOut, onT
             {/* Position & Name */}
             <div className="flex items-center gap-2 md:gap-4 pointer-events-none min-w-0">
                 <div className={`
-                    w-7 h-7 md:w-10 md:h-10 flex items-center justify-center rounded-full font-bold text-xs md:text-lg shrink-0
+                    w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-full font-bold text-sm md:text-lg shrink-0
                     ${isFirst ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-500'}
                 `}>
                     {index + 1}
                 </div>
                 <div className="flex flex-col min-w-0">
-                    <span className={`font-bold truncate ${isFirst ? 'text-lg md:text-3xl text-slate-800' : 'text-sm md:text-xl text-slate-800'}`}>
+                    <span className={`font-bold truncate ${isFirst ? 'text-lg md:text-3xl text-slate-800' : 'text-base md:text-xl text-slate-800'}`}>
                         {tech.name}
                     </span>
                     <TechTimer statusStartTime={tech.status_start_time} label="Waiting" />
                 </div>
             </div>
 
-            {/* Action Buttons - Always visible on mobile for touch */}
+            {/* Action Buttons - Full width row on mobile, inline on desktop */}
             <div
-                className={`flex gap-1 md:gap-2 transition-opacity shrink-0 ${isDragging ? 'opacity-0' : 'opacity-100'}`}
+                className={`flex gap-2 transition-opacity w-full md:w-auto justify-between md:justify-end shrink-0 ${isDragging ? 'opacity-0' : 'opacity-100'}`}
                 onPointerDown={(e) => e.stopPropagation()}
             >
                 <button
                     onClick={() => onClockOut(tech.id)}
                     title="Clock Out"
-                    className="p-1 md:p-2 bg-white text-slate-400 rounded-lg border border-rose-200 hover:bg-rose-50 hover:text-rose-500 shadow-sm transition-colors cursor-pointer h-7 w-7 md:h-11 md:w-11 flex items-center justify-center"
+                    className="p-2 bg-white text-slate-400 rounded-lg border border-rose-200 hover:bg-rose-50 hover:text-rose-500 shadow-sm transition-colors cursor-pointer h-11 w-11 flex items-center justify-center"
                 >
                     <ClockOutIcon />
                 </button>
                 <button
                     onClick={() => onRequest(tech.id)}
                     title="Request Assign"
-                    className="p-1 md:p-2 bg-white text-rose-500 rounded-lg border border-rose-200 hover:bg-rose-50 shadow-sm transition-colors cursor-pointer h-7 w-7 md:h-11 md:w-11 flex items-center justify-center"
+                    className="p-2 bg-white text-rose-500 rounded-lg border border-rose-200 hover:bg-rose-50 shadow-sm transition-colors cursor-pointer h-11 w-11 flex items-center justify-center"
                 >
                     <RequestIcon />
                 </button>
                 <button
                     onClick={() => onSkip(tech.id)}
                     title="Skip to Bottom"
-                    className="p-1 md:p-2 bg-white text-slate-400 rounded-lg border border-rose-200 hover:bg-slate-50 hover:text-slate-600 shadow-sm transition-colors cursor-pointer h-7 w-7 md:h-11 md:w-11 flex items-center justify-center"
+                    className="p-2 bg-white text-slate-400 rounded-lg border border-rose-200 hover:bg-slate-50 hover:text-slate-600 shadow-sm transition-colors cursor-pointer h-11 w-11 flex items-center justify-center"
                 >
                     <SkipIcon />
                 </button>
                 <button
                     onClick={() => onTakeBreak(tech.id)}
                     title="Lunch Break"
-                    className="px-2 md:px-3 py-1 md:py-2 bg-white text-orange-500 rounded-lg border-2 border-orange-300 hover:bg-orange-50 hover:border-orange-400 shadow-sm transition-colors cursor-pointer flex items-center justify-center font-bold text-xs md:text-sm"
+                    className="flex-1 md:flex-none px-3 py-2 bg-white text-orange-500 rounded-lg border-2 border-orange-300 hover:bg-orange-50 hover:border-orange-400 shadow-sm transition-colors cursor-pointer flex items-center justify-center font-bold text-sm min-h-[44px]"
                 >
                     LUNCH
                 </button>
@@ -185,7 +185,7 @@ export const QueueList = ({ queue, onNextTurn, onRequest, onSkip, onClockOut, on
     };
 
     return (
-        <div className="w-full h-full flex flex-col bg-white rounded-3xl shadow-sm border border-rose-100/50 overflow-hidden">
+        <div className="w-full h-full flex flex-col bg-white rounded-3xl shadow-sm border border-rose-200/60 overflow-hidden">
             {/* Header: NEXT TURN Button */}
             <NextTurnHero queueLength={queueItems.length} onNextTurn={onNextTurn} />
 

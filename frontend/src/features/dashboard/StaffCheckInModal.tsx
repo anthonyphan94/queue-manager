@@ -38,12 +38,15 @@ export const StaffCheckInModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-3 md:p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4" onClick={onClose}>
             {/* Modal Container: Flex Column with space-y-6 for automatic 24px gaps */}
             <div
-                className="flex flex-col p-4 md:p-8 space-y-4 md:space-y-6 bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+                className="flex flex-col p-4 md:p-8 space-y-4 md:space-y-6 bg-white rounded-t-3xl md:rounded-3xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto pb-safe"
                 onClick={(e) => e.stopPropagation()}
             >
+                {/* Grabber Handle for Mobile Sheet Look */}
+                <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto md:hidden mb-2"></div>
+
                 {/* Child 1: Header */}
                 <h2 className="text-xl md:text-2xl font-bold text-slate-800 text-center">Select Working Technicians</h2>
 
@@ -57,18 +60,18 @@ export const StaffCheckInModal = ({
                                 onChange={(e) => setNewTechName(e.target.value)}
                                 placeholder="Enter technician name..."
                                 autoFocus
-                                className="flex-1 px-4 py-3 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-transparent text-slate-800 text-lg"
+                                className="flex-1 px-4 py-3 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-transparent text-slate-800 text-base min-h-[44px]"
                             />
                             <button
                                 type="submit"
-                                className="px-6 py-3 bg-rose-500 text-white font-semibold rounded-xl hover:bg-rose-600 transition-colors"
+                                className="px-6 py-3 bg-rose-500 text-white font-semibold rounded-xl hover:bg-rose-600 transition-colors min-h-[44px]"
                             >
                                 Add
                             </button>
                             <button
                                 type="button"
                                 onClick={() => { setShowAddInput(false); setNewTechName(''); }}
-                                className="px-6 py-3 bg-slate-100 text-slate-500 font-semibold rounded-xl hover:bg-slate-200 transition-colors"
+                                className="px-6 py-3 bg-slate-100 text-slate-500 font-semibold rounded-xl hover:bg-slate-200 transition-colors min-h-[44px]"
                             >
                                 Cancel
                             </button>
@@ -76,7 +79,7 @@ export const StaffCheckInModal = ({
                     ) : (
                         <button
                             onClick={() => setShowAddInput(true)}
-                            className="flex items-center justify-center w-full gap-2 px-4 py-4 bg-rose-50 text-rose-500 font-semibold rounded-xl hover:bg-rose-100 transition-colors border-2 border-rose-200 border-dashed"
+                            className="flex items-center justify-center w-full gap-2 px-4 py-4 bg-rose-50 text-rose-500 font-semibold rounded-xl hover:bg-rose-100 transition-colors border-2 border-rose-200 border-dashed min-h-[44px]"
                         >
                             <PlusIcon />
                             Add New Technician
@@ -91,7 +94,7 @@ export const StaffCheckInModal = ({
                             <button
                                 onClick={() => onToggle(tech.id)}
                                 className={`
-                                    w-full px-4 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 shadow-sm text-center whitespace-normal break-words
+                                    w-full px-4 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 shadow-sm text-center whitespace-normal break-words min-h-[44px]
                                     ${tech.is_active
                                         ? 'bg-rose-500 text-white hover:bg-rose-600 shadow-rose-200'
                                         : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
@@ -122,7 +125,7 @@ export const StaffCheckInModal = ({
                 <div className="pt-4 flex justify-center">
                     <button
                         onClick={onClose}
-                        className="px-16 py-4 bg-rose-500 text-white font-bold rounded-xl hover:bg-rose-600 transition-all duration-200 shadow-lg shadow-rose-200 text-lg"
+                        className="px-16 py-4 bg-rose-500 text-white font-bold rounded-xl hover:bg-rose-600 transition-all duration-200 shadow-lg shadow-rose-200 text-lg min-h-[44px]"
                     >
                         Done
                     </button>

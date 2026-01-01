@@ -108,7 +108,7 @@ export const Dashboard = () => {
             />
 
             {/* --- MAIN CONTENT --- */}
-            <main className="flex-1 p-3 md:p-6 overflow-auto">
+            <main className="flex-1 p-3 md:p-6 overflow-auto pb-safe">
                 <div className="flex flex-col lg:flex-row gap-4 md:gap-6 h-full">
                     {/* Left Panel: Sidebar with Queue + Resting */}
                     <div className="w-full lg:w-[40%] flex flex-col gap-3 md:gap-4 h-full overflow-hidden">
