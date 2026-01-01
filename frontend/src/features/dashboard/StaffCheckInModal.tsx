@@ -134,10 +134,10 @@ export const StaffCheckInModal = ({
                     {/* Technician List */}
                     <div className="space-y-1">
                         {technicians.map((tech) => (
-                            <div key={tech.id} className="relative group">
+                            <div key={tech.id} className="selection-row-container">
                                 <button
                                     onClick={() => onToggle(tech.id)}
-                                    className={`selection-row w-full ${tech.is_active ? 'selected' : ''}`}
+                                    className={`selection-row flex-1 ${tech.is_active ? 'selected' : ''}`}
                                 >
                                     <span className="selection-row-name">{tech.name}</span>
                                     {tech.is_active && (
@@ -145,21 +145,18 @@ export const StaffCheckInModal = ({
                                     )}
                                 </button>
 
-                                {/* Remove Button - visible on hover/mobile always visible */}
+                                {/* Remove Button - always visible, HIG compliant */}
                                 <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
+                                    onClick={() => {
                                         if (window.confirm(`Remove ${tech.name}?`)) {
                                             onRemove(tech.id);
                                         }
                                     }}
-                                    className="absolute -top-1 -right-1 bg-white text-rose-500 rounded-full p-1.5 shadow-md border border-rose-100 hover:bg-rose-50 opacity-0 md:group-hover:opacity-100 md:opacity-0 transition-opacity z-10 min-h-[32px] min-w-[32px] flex items-center justify-center"
+                                    className="min-h-[44px] min-w-[44px] px-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors flex items-center justify-center text-xs font-medium"
                                     title="Remove Technician"
                                     aria-label={`Remove ${tech.name}`}
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
+                                    Remove
                                 </button>
                             </div>
                         ))}

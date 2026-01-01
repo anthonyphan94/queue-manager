@@ -268,6 +268,13 @@ body.modal-open {
     z-index: 10;
 }
 
+/* Selection row container */
+.selection-row-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
 /* Selection row for technicians */
 .selection-row {
     display: flex;

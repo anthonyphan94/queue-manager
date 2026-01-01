@@ -140,9 +140,6 @@ const SortableQueueItem = ({ id, tech, index, onRequest, onSkip, onClockOut, onT
                 <ActionButton onClick={() => onRequest(tech.id)} title="Request Assign" variant="assign">
                     Assign
                 </ActionButton>
-                <ActionButton onClick={() => onSkip(tech.id)} title="Skip to Bottom">
-                    <SkipIcon />
-                </ActionButton>
                 <ActionButton onClick={() => onTakeBreak(tech.id)} title="Lunch Break" variant="lunch">
                     LUNCH
                 </ActionButton>
