@@ -147,7 +147,7 @@ export const StaffCheckInModal = ({
                             <div
                                 key={tech.id}
                                 className={`
-                                    relative flex items-center justify-between p-0 overflow-hidden rounded-xl border transition-all duration-200
+                                    relative flex items-center justify-between p-0 overflow-hidden rounded-2xl border transition-all duration-200
                                     ${tech.is_active
                                         ? 'bg-rose-50 border-rose-200 active:bg-rose-100'
                                         : 'bg-white border-slate-200 active:bg-slate-50'
