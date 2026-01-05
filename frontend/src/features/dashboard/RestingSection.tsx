@@ -3,7 +3,7 @@
  * iOS HIG compliant: compact chips, horizontal scroll, max height constraint.
  */
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import type { Technician } from '../../types';
 import { useStatusTimer, formatDuration } from '../../hooks/useStatusTimer';
 
@@ -55,7 +55,7 @@ const ExpandedGrid = ({
     );
 };
 
-export const RestingSection = ({ onBreak, onReturn }: RestingSectionProps) => {
+export const RestingSection = memo(({ onBreak, onReturn }: RestingSectionProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     if (onBreak.length === 0) return null;
@@ -97,6 +97,8 @@ export const RestingSection = ({ onBreak, onReturn }: RestingSectionProps) => {
             )}
         </div>
     );
-};
+});
+
+RestingSection.displayName = 'RestingSection';
 
 export default RestingSection;

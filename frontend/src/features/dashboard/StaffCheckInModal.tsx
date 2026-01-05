@@ -3,9 +3,10 @@
  * Features: body scroll lock, sticky header/footer, list-based selection, safe areas.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { Technician } from '../../types';
 import { CheckIcon, PlusIcon } from './Icons';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 
 interface StaffCheckInModalProps {
     isOpen: boolean;
@@ -27,28 +28,8 @@ export const StaffCheckInModal = ({
     const [showAddInput, setShowAddInput] = useState(false);
     const [newTechName, setNewTechName] = useState('');
 
-    // Body scroll lock
-    useEffect(() => {
-        if (isOpen) {
-            // Lock body scroll
-            document.body.classList.add('modal-open');
-            // Save current scroll position
-            const scrollY = window.scrollY;
-            document.body.style.top = `-${scrollY}px`;
-        } else {
-            // Unlock body scroll
-            document.body.classList.remove('modal-open');
-            // Restore scroll position
-            const scrollY = document.body.style.top;
-            document.body.style.top = '';
-            window.scrollTo(0, parseInt(scrollY || '0') * -1);
-        }
-
-        return () => {
-            document.body.classList.remove('modal-open');
-            document.body.style.top = '';
-        };
-    }, [isOpen]);
+    // Lock body scroll when modal is open
+    useBodyScrollLock(isOpen);
 
     const handleAddTech = (e: React.FormEvent) => {
         e.preventDefault();

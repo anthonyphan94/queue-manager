@@ -1,0 +1,107 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - img "Marilyn's Beauty Lounge" [ref=e6]
+    - button [ref=e7]:
+      - img [ref=e8]
+  - dialog "Select Working Technicians" [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e14]:
+        - heading "Select Working Technicians" [level=2] [ref=e15]
+        - generic [ref=e16]: 4 selected
+      - generic [ref=e17]:
+        - button "Add New Technician" [ref=e19] [cursor=pointer]:
+          - img [ref=e20]
+          - generic [ref=e22]: Add New Technician
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - generic [ref=e27] [cursor=pointer]: Kiet
+            - generic [ref=e28]:
+              - img [ref=e29]
+              - button "Remove Kiet" [ref=e31]: Remove
+          - generic [ref=e32]:
+            - generic [ref=e35] [cursor=pointer]: Mary
+            - generic [ref=e36]:
+              - img [ref=e37]
+              - button "Remove Mary" [ref=e39]: Remove
+          - generic [ref=e40]:
+            - generic [ref=e42] [cursor=pointer]: Dung
+            - button "Remove Dung" [ref=e44]: Remove
+          - generic [ref=e45]:
+            - generic [ref=e47] [cursor=pointer]: Annie
+            - button "Remove Annie" [ref=e49]: Remove
+          - generic [ref=e50]:
+            - generic [ref=e52] [cursor=pointer]: Hâh
+            - button "Remove Hâh" [ref=e54]: Remove
+          - generic [ref=e55]:
+            - generic [ref=e57] [cursor=pointer]: Snma
+            - button "Remove Snma" [ref=e59]: Remove
+          - generic [ref=e60]:
+            - generic [ref=e62] [cursor=pointer]: Hoa
+            - button "Remove Hoa" [ref=e64]: Remove
+          - generic [ref=e65]:
+            - generic [ref=e68] [cursor=pointer]: Kenny
+            - generic [ref=e69]:
+              - img [ref=e70]
+              - button "Remove Kenny" [ref=e72]: Remove
+          - generic [ref=e73]:
+            - generic [ref=e76] [cursor=pointer]: Kiet
+            - generic [ref=e77]:
+              - img [ref=e78]
+              - button "Remove Kiet" [ref=e80]: Remove
+      - button "Done" [ref=e82]
+  - main [ref=e83]:
+    - generic [ref=e84]:
+      - generic [ref=e85]:
+        - generic [ref=e87]:
+          - generic [ref=e88]:
+            - button "NEXT TURN" [ref=e89]:
+              - generic [ref=e90]: NEXT TURN
+              - img [ref=e91]
+            - generic [ref=e93]:
+              - generic [ref=e94]: Queue (2)
+              - generic [ref=e95]: Drag to reorder
+          - generic [ref=e96]:
+            - 'button "1 Kenny Waiting: 48:22 Assign LUNCH" [ref=e97]':
+              - generic:
+                - generic: "1"
+                - generic:
+                  - generic: Kenny
+                  - generic: "Waiting: 48:22"
+              - generic [ref=e98]:
+                - button "Clock Out" [ref=e99] [cursor=pointer]:
+                  - img [ref=e100]
+                - button "Assign" [ref=e102] [cursor=pointer]
+                - button "LUNCH" [ref=e103] [cursor=pointer]
+            - 'button "2 Kiet Waiting: 48:10 Assign LUNCH" [ref=e104]':
+              - generic:
+                - generic: "2"
+                - generic:
+                  - generic: Kiet
+                  - generic: "Waiting: 48:10"
+              - generic [ref=e105]:
+                - button "Clock Out" [ref=e106] [cursor=pointer]:
+                  - img [ref=e107]
+                - button "Assign" [ref=e109] [cursor=pointer]
+                - button "LUNCH" [ref=e110] [cursor=pointer]
+            - status [ref=e111]
+        - generic [ref=e112]:
+          - heading "🍴 On Break (1)" [level=2] [ref=e114]:
+            - generic [ref=e115]: 🍴
+            - generic [ref=e116]: On Break (1)
+          - button "Kiet 2h 22m" [ref=e118] [cursor=pointer]:
+            - generic [ref=e119]: Kiet
+            - generic [ref=e120]: 2h 22m
+      - generic [ref=e121]:
+        - heading "Currently Working" [level=2] [ref=e123]: Currently Working
+        - generic [ref=e127]:
+          - generic [ref=e128]:
+            - generic [ref=e129]:
+              - generic [ref=e130]: Mary
+              - generic [ref=e131]: Busy
+            - generic [ref=e132]: "Working: 2h 22m"
+          - button [ref=e133]:
+            - img [ref=e134]
+```

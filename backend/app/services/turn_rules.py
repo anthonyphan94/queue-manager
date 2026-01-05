@@ -6,7 +6,7 @@ It does NOT depend on FastAPI, only on data models.
 """
 
 from typing import List, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 
 
@@ -115,23 +115,14 @@ class TurnRulesService:
 
     # --- Position Calculation Methods ---
 
-    def calculate_new_queue_position(self) -> int:
+    def get_next_queue_position(self) -> int:
         """
-        Calculate the queue position for a new technician (bottom of queue).
-        
+        Calculate the next queue position (bottom of queue).
+
+        Used for both new technicians and when moving to bottom of queue.
+
         Returns:
             The next available queue position.
-        """
-        if not self.technicians:
-            return 1
-        return max(t.queue_position for t in self.technicians) + 1
-
-    def calculate_bottom_position(self) -> int:
-        """
-        Calculate the position at the bottom of the queue.
-        
-        Returns:
-            The position value for the bottom of the queue.
         """
         if not self.technicians:
             return 1
@@ -150,7 +141,7 @@ class TurnRulesService:
             The newly created technician entity.
         """
         new_id = max((t.id for t in self.technicians), default=0) + 1
-        new_position = self.calculate_new_queue_position()
+        new_position = self.get_next_queue_position()
         
         new_tech = TechnicianEntity(
             id=new_id,
@@ -241,7 +232,7 @@ class TurnRulesService:
         # status_start_time will be set by Firestore SERVER_TIMESTAMP
         
         # Move to bottom of queue
-        tech.queue_position = self.calculate_bottom_position()
+        tech.queue_position = self.get_next_queue_position()
         
         return tech
 
@@ -308,7 +299,7 @@ class TurnRulesService:
         tech = self.get_tech_by_id_or_raise(tech_id)
         tech.status = "AVAILABLE"
         # status_start_time will be set by Firestore SERVER_TIMESTAMP
-        tech.queue_position = self.calculate_bottom_position()
+        tech.queue_position = self.get_next_queue_position()
         return tech
 
     # --- Serialization Methods ---

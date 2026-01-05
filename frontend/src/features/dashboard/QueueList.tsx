@@ -11,6 +11,7 @@ import {
     PointerSensor,
     useSensor,
     useSensors,
+    type DragEndEvent,
 } from '@dnd-kit/core';
 import {
     arrayMove,
@@ -23,22 +24,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { Technician } from '../../types';
 import { RequestIcon, SkipIcon, ClockOutIcon } from './Icons';
 import NextTurnHero from './NextTurnHero';
-import { useStatusTimer, formatDuration } from '../../hooks/useStatusTimer';
-
-// --- Reusable Timer Display Component ---
-interface TechTimerProps {
-    statusStartTime?: string | null;
-    label: string;
-}
-
-const TechTimer = ({ statusStartTime, label }: TechTimerProps) => {
-    const elapsedSeconds = useStatusTimer(statusStartTime);
-    return (
-        <span className="text-[11px] text-orange-600 font-medium">
-            {label}: {formatDuration(elapsedSeconds)}
-        </span>
-    );
-};
+import { TimerDisplay } from '../../components/TimerDisplay';
 
 // --- Compact Action Button ---
 interface ActionButtonProps {
@@ -125,7 +111,7 @@ const SortableQueueItem = ({ id, tech, index, onRequest, onSkip, onClockOut, onT
                     <span className={`font-semibold truncate leading-tight ${isFirst ? 'text-base text-slate-800' : 'text-sm text-slate-700'}`}>
                         {tech.name}
                     </span>
-                    <TechTimer statusStartTime={tech.status_start_time} label="Waiting" />
+                    <TimerDisplay statusStartTime={tech.status_start_time} label="Waiting" />
                 </div>
             </div>
 
@@ -160,9 +146,10 @@ interface QueueListProps {
 }
 
 export const QueueList = ({ queue, onNextTurn, onRequest, onSkip, onClockOut, onReorder, onTakeBreak }: QueueListProps) => {
-    const [queueItems, setQueueItems] = useState<Technician[]>([]);
+    // Local state for optimistic drag-drop updates, initialized with prop value
+    const [queueItems, setQueueItems] = useState<Technician[]>(queue);
 
-    // Sync queueItems with props
+    // Sync with prop when external updates occur (e.g., backend sync)
     useEffect(() => {
         setQueueItems(queue);
     }, [queue]);
@@ -179,7 +166,7 @@ export const QueueList = ({ queue, onNextTurn, onRequest, onSkip, onClockOut, on
         })
     );
 
-    const handleDragEnd = (event: any) => {
+    const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
 
         if (active.id !== over?.id) {

@@ -5,7 +5,7 @@
  * Components can simply destructure the values and actions they need.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useTechStore } from '../store/techStore';
 import type { Technician } from '../types';
 
@@ -49,20 +49,29 @@ export const useTurnLogic = (): UseTurnLogicReturn => {
         returnFromBreak: storeReturnFromBreak,
     } = useTechStore();
 
-    // Derived state: Queue (available and active technicians)
-    const queue = technicians
-        .filter((t: Technician) => t.status === 'AVAILABLE' && t.is_active)
-        .sort((a: Technician, b: Technician) => a.queue_position - b.queue_position);
+    // Memoized derived state: Queue (available and active technicians)
+    const queue = useMemo(() =>
+        technicians
+            .filter((t: Technician) => t.status === 'AVAILABLE' && t.is_active)
+            .sort((a: Technician, b: Technician) => a.queue_position - b.queue_position),
+        [technicians]
+    );
 
-    // Derived state: Working (busy technicians)
-    const working = technicians
-        .filter((t: Technician) => t.status === 'BUSY' && t.is_active)
-        .sort((a: Technician, b: Technician) => a.id - b.id);
+    // Memoized derived state: Working (busy technicians)
+    const working = useMemo(() =>
+        technicians
+            .filter((t: Technician) => t.status === 'BUSY' && t.is_active)
+            .sort((a: Technician, b: Technician) => a.id - b.id),
+        [technicians]
+    );
 
-    // Derived state: On Break
-    const onBreak = technicians
-        .filter((t: Technician) => t.status === 'ON_BREAK' && t.is_active)
-        .sort((a: Technician, b: Technician) => a.id - b.id);
+    // Memoized derived state: On Break
+    const onBreak = useMemo(() =>
+        technicians
+            .filter((t: Technician) => t.status === 'ON_BREAK' && t.is_active)
+            .sort((a: Technician, b: Technician) => a.id - b.id),
+        [technicians]
+    );
 
     // Connect on mount, cleanup on unmount
     useEffect(() => {

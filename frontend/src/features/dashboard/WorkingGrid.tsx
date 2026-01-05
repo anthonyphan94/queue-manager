@@ -3,26 +3,17 @@
  * iOS HIG compliant: 1-column on mobile, compact cards, 44px touch targets.
  */
 
+import { memo } from 'react';
 import type { Technician } from '../../types';
 import { FinishIcon, EmptyStateIcon } from './Icons';
-import { useStatusTimer, formatDuration } from '../../hooks/useStatusTimer';
+import { TimerDisplay } from '../../components/TimerDisplay';
 
 interface WorkingGridProps {
     working: Technician[];
     onFinish: (techId: number) => void;
 }
 
-// Timer component for working technicians
-const WorkingTimer = ({ statusStartTime }: { statusStartTime?: string | null }) => {
-    const elapsedSeconds = useStatusTimer(statusStartTime);
-    return (
-        <div className="text-[11px] md:text-xs text-orange-600 font-medium">
-            Working: {formatDuration(elapsedSeconds)}
-        </div>
-    );
-};
-
-export const WorkingGrid = ({ working, onFinish }: WorkingGridProps) => {
+export const WorkingGrid = memo(({ working, onFinish }: WorkingGridProps) => {
     return (
         <div className="w-full lg:w-[60%] flex flex-col bg-white rounded-2xl shadow-sm border border-rose-200/60 overflow-hidden min-h-[30vh] lg:min-h-0">
             {/* Header */}
@@ -49,7 +40,11 @@ export const WorkingGrid = ({ working, onFinish }: WorkingGridProps) => {
                                         Busy
                                     </span>
                                 </div>
-                                <WorkingTimer statusStartTime={tech.status_start_time} />
+                                <TimerDisplay
+                                    statusStartTime={tech.status_start_time}
+                                    label="Working"
+                                    className="text-[11px] md:text-xs text-orange-600 font-medium"
+                                />
                             </div>
 
                             {/* Right: Finish Button */}
@@ -72,6 +67,8 @@ export const WorkingGrid = ({ working, onFinish }: WorkingGridProps) => {
             </div>
         </div>
     );
-};
+});
+
+WorkingGrid.displayName = 'WorkingGrid';
 
 export default WorkingGrid;

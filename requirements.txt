@@ -1,7 +1,7 @@
-fastapi
-uvicorn
-pytest
-websockets
-aiosqlite
-google-cloud-firestore
-python-multipart
+fastapi>=0.115.0,<1.0.0
+uvicorn>=0.30.0,<1.0.0
+google-cloud-firestore>=2.14.0,<3.0.0
+python-multipart>=0.0.6,<1.0.0
+
+# Development/Testing
+pytest>=7.4.0,<8.0.0

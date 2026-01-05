@@ -1,12 +1,53 @@
+/**
+ * Zustand store for technician state management.
+ * Connects to Firestore for real-time updates and provides API methods.
+ */
+
 import { create } from 'zustand';
 import { db } from '../firebase';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import type {
+    Technician,
+    AssignResponse,
+    CompleteResponse,
+    ToggleActiveResponse,
+    ReorderResponse,
+    RemoveResponse,
+} from '../types';
 
 // Use relative URLs in production (served from same origin), localhost in development
 const isDev = import.meta.env.DEV;
 const API_URL = isDev ? 'http://localhost:8000' : '';
 
-export const useTechStore = create((set, get) => ({
+interface BreakResponse {
+    tech_id: number;
+    status: string;
+    status_start_time: string | null;
+}
+
+interface TechStore {
+    technicians: Technician[];
+    firestoreConnected: boolean;
+    unsubscribe: Unsubscribe | null;
+
+    // Connection methods
+    connect: () => void;
+    disconnect: () => void;
+
+    // API methods
+    addTech: (name: string) => Promise<Technician>;
+    assignNext: (clientName: string) => Promise<AssignResponse>;
+    requestTech: (techId: number, clientName: string) => Promise<AssignResponse>;
+    completeTurn: (techId: number, isRequest?: boolean) => Promise<CompleteResponse>;
+    skipTurn: (techId: number) => Promise<CompleteResponse>;
+    toggleActive: (techId: number) => Promise<ToggleActiveResponse>;
+    reorderQueue: (techIds: number[]) => Promise<ReorderResponse>;
+    removeTech: (techId: number) => Promise<RemoveResponse>;
+    takeBreak: (techId: number) => Promise<BreakResponse>;
+    returnFromBreak: (techId: number) => Promise<BreakResponse>;
+}
+
+export const useTechStore = create<TechStore>((set, get) => ({
     technicians: [],
     firestoreConnected: false,
     unsubscribe: null,
@@ -19,7 +60,7 @@ export const useTechStore = create((set, get) => ({
             return;
         }
 
-        console.log('🔥 Connecting to Firestore...');
+        console.log('Connecting to Firestore...');
 
         // Create query ordered by queue_position
         const techniciansRef = collection(db, 'technicians');
@@ -29,18 +70,21 @@ export const useTechStore = create((set, get) => ({
         const unsubscribe = onSnapshot(
             q,
             (snapshot) => {
-                const techs = snapshot.docs.map((doc) => ({
+                const techs: Technician[] = snapshot.docs.map((doc) => ({
                     id: parseInt(doc.id, 10),
-                    ...doc.data(),
+                    name: doc.data().name,
+                    status: doc.data().status,
+                    queue_position: doc.data().queue_position,
+                    is_active: doc.data().is_active,
                     // Convert Firestore Timestamp to ISO string for consistency
-                    status_start_time: doc.data().status_start_time?.toDate?.()?.toISOString() || null
+                    status_start_time: doc.data().status_start_time?.toDate?.()?.toISOString() || undefined
                 }));
 
-                console.log(`📦 Firestore update: ${techs.length} technicians`);
+                console.log(`Firestore update: ${techs.length} technicians`);
                 set({ technicians: techs, firestoreConnected: true });
             },
             (error) => {
-                console.error('❌ Firestore error:', error);
+                console.error('Firestore error:', error);
                 set({ firestoreConnected: false });
             }
         );
@@ -52,44 +96,53 @@ export const useTechStore = create((set, get) => ({
     disconnect: () => {
         const { unsubscribe } = get();
         if (unsubscribe) {
-            console.log('🔌 Disconnecting from Firestore');
+            console.log('Disconnecting from Firestore');
             unsubscribe();
             set({ unsubscribe: null, firestoreConnected: false });
         }
     },
 
     // Add technician (via Python API)
-    addTech: async (name) => {
+    addTech: async (name: string): Promise<Technician> => {
         const res = await fetch(`${API_URL}/techs`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name }),
         });
+        if (!res.ok) throw new Error('Failed to add technician');
         return res.json();
     },
 
     // Assign next available tech (via Python API)
-    assignNext: async (clientName) => {
+    assignNext: async (clientName: string): Promise<AssignResponse> => {
         const res = await fetch(`${API_URL}/assign`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ client_name: clientName }),
         });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Failed to assign technician');
+        }
         return res.json();
     },
 
     // Request specific tech (via Python API)
-    requestTech: async (techId, clientName) => {
+    requestTech: async (techId: number, clientName: string): Promise<AssignResponse> => {
         const res = await fetch(`${API_URL}/assign`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ client_name: clientName, request_tech_id: techId }),
         });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Failed to request technician');
+        }
         return res.json();
     },
 
     // Complete turn (via Python API)
-    completeTurn: async (techId, isRequest = false) => {
+    completeTurn: async (techId: number, isRequest: boolean = false): Promise<CompleteResponse> => {
         console.log(`Sending complete turn for techId: ${techId}, isRequest: ${isRequest}`);
         const res = await fetch(`${API_URL}/complete`, {
             method: 'POST',
@@ -104,32 +157,34 @@ export const useTechStore = create((set, get) => ({
     },
 
     // Skip turn (alias for completeTurn)
-    skipTurn: async (techId) => {
+    skipTurn: async (techId: number): Promise<CompleteResponse> => {
         return get().completeTurn(techId, false);
     },
 
     // Toggle technician active/inactive (via Python API)
-    toggleActive: async (techId) => {
+    toggleActive: async (techId: number): Promise<ToggleActiveResponse> => {
         const res = await fetch(`${API_URL}/techs/toggle-active`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tech_id: techId }),
         });
+        if (!res.ok) throw new Error('Failed to toggle active status');
         return res.json();
     },
 
     // Reorder queue (via Python API)
-    reorderQueue: async (techIds) => {
+    reorderQueue: async (techIds: number[]): Promise<ReorderResponse> => {
         const res = await fetch(`${API_URL}/techs/reorder`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tech_ids: techIds }),
         });
+        if (!res.ok) throw new Error('Failed to reorder queue');
         return res.json();
     },
 
     // Remove technician (via Python API)
-    removeTech: async (techId) => {
+    removeTech: async (techId: number): Promise<RemoveResponse> => {
         const res = await fetch(`${API_URL}/techs/${techId}`, {
             method: 'DELETE',
         });
@@ -138,7 +193,7 @@ export const useTechStore = create((set, get) => ({
     },
 
     // Take break (via Python API)
-    takeBreak: async (techId) => {
+    takeBreak: async (techId: number): Promise<BreakResponse> => {
         const res = await fetch(`${API_URL}/techs/break`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -149,7 +204,7 @@ export const useTechStore = create((set, get) => ({
     },
 
     // Return from break (via Python API)
-    returnFromBreak: async (techId) => {
+    returnFromBreak: async (techId: number): Promise<BreakResponse> => {
         const res = await fetch(`${API_URL}/techs/return`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

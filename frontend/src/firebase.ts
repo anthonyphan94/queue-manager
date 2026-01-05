@@ -1,14 +1,23 @@
 /**
  * Firebase Configuration
- * 
+ *
  * Initializes Firebase and exports the Firestore database instance.
  * Used for real-time synchronization with onSnapshot listeners.
  */
 
-import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp, type FirebaseApp } from 'firebase/app';
+import { getFirestore, type Firestore } from 'firebase/firestore';
 
-const firebaseConfig = {
+interface FirebaseConfig {
+    apiKey: string;
+    authDomain: string;
+    projectId: string;
+    storageBucket: string;
+    messagingSenderId: string;
+    appId: string;
+}
+
+const firebaseConfig: FirebaseConfig = {
     apiKey: "AIzaSyB1FY8ssXBZSDOfxVZ0ZFNzI_wYhrQaQRo",
     authDomain: "mbl-queue-manager.firebaseapp.com",
     projectId: "mbl-queue-manager",
@@ -18,8 +27,8 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app: FirebaseApp = initializeApp(firebaseConfig);
 
 // Initialize and export Firestore
-export const db = getFirestore(app);
+export const db: Firestore = getFirestore(app);
 export default app;
