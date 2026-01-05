@@ -4,8 +4,8 @@
  */
 
 import { create } from 'zustand';
-import { db } from '../firebase';
-import { collection, query, orderBy, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { getDB } from '../firebase';
+import { collection, query, orderBy, onSnapshot, type Unsubscribe, type Firestore } from 'firebase/firestore';
 import type {
     Technician,
     AssignResponse,
@@ -31,7 +31,7 @@ interface TechStore {
     unsubscribe: Unsubscribe | null;
 
     // Connection methods
-    connect: () => void;
+    connect: () => Promise<void>;
     disconnect: () => void;
 
     // API methods
@@ -52,8 +52,8 @@ export const useTechStore = create<TechStore>((set, get) => ({
     firestoreConnected: false,
     unsubscribe: null,
 
-    // Connect to Firestore real-time listener
-    connect: () => {
+    // Connect to Firestore real-time listener (lazy loads Firebase)
+    connect: async () => {
         // Prevent duplicate subscriptions
         if (get().unsubscribe) {
             console.log('Firestore already connected');
@@ -61,6 +61,9 @@ export const useTechStore = create<TechStore>((set, get) => ({
         }
 
         console.log('Connecting to Firestore...');
+
+        // Lazy load Firestore
+        const db: Firestore = await getDB();
 
         // Create query ordered by queue_position
         const techniciansRef = collection(db, 'technicians');

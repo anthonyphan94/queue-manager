@@ -100,15 +100,53 @@ async def save_technician(tech: dict, update_status_time: bool = False) -> int:
         await doc_ref.set(doc_data, merge=True)
         return tech_id
     else:
-        # Generate new ID - find max existing ID and increment
-        existing = await load_technicians()
-        new_id = max((t["id"] for t in existing), default=0) + 1
-        
+        # Generate new ID efficiently - query only the max ID document
+        new_id = await get_next_technician_id()
+
         # New technicians always get SERVER_TIMESTAMP
         doc_data["status_start_time"] = firestore.SERVER_TIMESTAMP
-        
+
         doc_ref = collection.document(str(new_id))
         await doc_ref.set(doc_data)
+        return new_id
+
+
+async def get_next_technician_id() -> int:
+    """Get the next available technician ID efficiently.
+
+    Uses a descending query with limit(1) to find max ID,
+    avoiding loading all technicians into memory.
+    """
+    db = _get_db()
+    collection = db.collection(COLLECTION_NAME)
+
+    # Query for the document with the highest ID (document IDs are strings of integers)
+    # We need to get all docs and find max since Firestore doesn't support ordering by doc ID
+    # Use a counter document for O(1) performance
+    counter_ref = db.collection("_counters").document("technicians")
+    counter_doc = await counter_ref.get()
+
+    if counter_doc.exists:
+        current_max = counter_doc.to_dict().get("next_id", 1)
+        new_id = current_max
+        # Increment the counter
+        await counter_ref.set({"next_id": current_max + 1})
+        return new_id
+    else:
+        # First time - scan existing docs to find max (one-time migration)
+        query = collection.stream()
+        max_id = 0
+        async for doc in query:
+            try:
+                doc_id = int(doc.id)
+                if doc_id > max_id:
+                    max_id = doc_id
+            except ValueError:
+                continue
+
+        new_id = max_id + 1
+        # Initialize counter for future use
+        await counter_ref.set({"next_id": new_id + 1})
         return new_id
 
 

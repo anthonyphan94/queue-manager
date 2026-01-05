@@ -1,12 +1,12 @@
 /**
- * Firebase Configuration
+ * Firebase Configuration - Lazy Loaded
  *
- * Initializes Firebase and exports the Firestore database instance.
- * Used for real-time synchronization with onSnapshot listeners.
+ * Firebase and Firestore are initialized lazily on first access
+ * to reduce initial bundle size and startup time.
  */
 
-import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import type { FirebaseApp } from 'firebase/app';
+import type { Firestore } from 'firebase/firestore';
 
 interface FirebaseConfig {
     apiKey: string;
@@ -26,9 +26,36 @@ const firebaseConfig: FirebaseConfig = {
     appId: "1:382115177008:web:58f41146f4f433239a83f5"
 };
 
-// Initialize Firebase
-const app: FirebaseApp = initializeApp(firebaseConfig);
+// Lazy-loaded singletons
+let app: FirebaseApp | null = null;
+let db: Firestore | null = null;
 
-// Initialize and export Firestore
-export const db: Firestore = getFirestore(app);
-export default app;
+/**
+ * Get or initialize the Firebase app instance.
+ */
+export async function getApp(): Promise<FirebaseApp> {
+    if (!app) {
+        const { initializeApp } = await import('firebase/app');
+        app = initializeApp(firebaseConfig);
+    }
+    return app;
+}
+
+/**
+ * Get or initialize the Firestore database instance.
+ * This is the primary export used by the store.
+ */
+export async function getDB(): Promise<Firestore> {
+    if (!db) {
+        const [{ getFirestore }, firebaseApp] = await Promise.all([
+            import('firebase/firestore'),
+            getApp()
+        ]);
+        db = getFirestore(firebaseApp);
+    }
+    return db;
+}
+
+// For backwards compatibility - synchronous access (use getDB() for new code)
+// This will be undefined until getDB() is called
+export { db };

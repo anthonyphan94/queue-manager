@@ -75,6 +75,7 @@ export const useTurnLogic = (): UseTurnLogicReturn => {
 
     // Connect on mount, cleanup on unmount
     useEffect(() => {
+        // Connect is now async (lazy loads Firebase)
         connect();
         // Cleanup: unsubscribe from Firestore when component unmounts
         return () => {

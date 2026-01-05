@@ -12,8 +12,8 @@ interface RestingSectionProps {
     onReturn: (techId: number) => void;
 }
 
-// Compact chip for technician on break
-const BreakChip = ({ tech, onReturn }: { tech: Technician; onReturn: (techId: number) => void }) => {
+// Compact chip for technician on break - memoized to prevent cascade re-renders
+const BreakChip = memo(({ tech, onReturn }: { tech: Technician; onReturn: (techId: number) => void }) => {
     const elapsedSeconds = useStatusTimer(tech.status_start_time);
 
     return (
@@ -26,7 +26,9 @@ const BreakChip = ({ tech, onReturn }: { tech: Technician; onReturn: (techId: nu
             <span className="break-chip-time">{formatDuration(elapsedSeconds)}</span>
         </button>
     );
-};
+});
+
+BreakChip.displayName = 'BreakChip';
 
 // Expanded grid view (shown when "See all" is tapped)
 const ExpandedGrid = ({
