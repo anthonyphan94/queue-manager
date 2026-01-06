@@ -1,7 +1,7 @@
 # ==========================================
 # Stage 1: Build Frontend (Vite + React)
 # ==========================================
-FROM node:20-alpine as frontend-build
+FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
 
 # Copy package files first for better caching
@@ -19,8 +19,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
-COPY backend/requirements.txt .
+# Install dependencies (requirements.txt is at root level)
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend code
