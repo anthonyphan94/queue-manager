@@ -1,0 +1,123 @@
+/* PIN Modal Styles */
+
+.pin-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.pin-modal {
+    background: white;
+    border-radius: 24px;
+    padding: 2.5rem 2rem;
+    max-width: 360px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.pin-modal-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.pin-modal-title {
+    margin: 0 0 0.5rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.pin-modal-subtitle {
+    margin: 0 0 2rem;
+    color: #64748b;
+    font-size: 0.95rem;
+}
+
+/* PIN Input Grid */
+.pin-inputs {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.pin-input {
+    width: 56px;
+    height: 64px;
+    border: 2px solid #fecdd3;
+    border-radius: 12px;
+    background: #fff;
+    font-size: 1.75rem;
+    font-weight: 700;
+    text-align: center;
+    color: #1e293b;
+    transition: all 0.15s ease;
+    -webkit-text-security: disc;
+    /* Hide PIN digits */
+}
+
+.pin-input:focus {
+    outline: none;
+    border-color: #e11d48;
+    box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.15);
+}
+
+.pin-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Error Message */
+.pin-error {
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    font-size: 0.9rem;
+}
+
+/* Submit Button */
+.pin-submit-btn {
+    width: 100%;
+    padding: 1rem;
+    border: none;
+    border-radius: 12px;
+    background: #e11d48;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 52px;
+}
+
+.pin-submit-btn:hover:not(:disabled) {
+    background: #be123c;
+}
+
+.pin-submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Back Link */
+.pin-back-link {
+    display: inline-block;
+    margin-top: 1.5rem;
+    color: #64748b;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.15s ease;
+}
+
+.pin-back-link:hover {
+    color: #e11d48;
+}

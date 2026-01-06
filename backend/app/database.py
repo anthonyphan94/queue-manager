@@ -5,24 +5,47 @@ Provides async Firestore database operations for storing technician data
 persistently. Compatible with Google Cloud Run automatic authentication.
 """
 
-from google.cloud import firestore
-from google.cloud.firestore_v1 import AsyncClient
 from typing import List, Optional
 from datetime import datetime
+import os
 
-# Firestore client (initialized lazily)
-_db: Optional[AsyncClient] = None
+# Skip Firestore entirely if SKIP_FIRESTORE env var is set
+SKIP_FIRESTORE = os.environ.get("SKIP_FIRESTORE", "0") == "1"
+
+# Try to import Firestore, but allow the app to run without it
+FIRESTORE_AVAILABLE = False
+_db = None
+firestore = None
+
+if not SKIP_FIRESTORE:
+    try:
+        from google.cloud import firestore as _firestore
+        from google.cloud.firestore_v1 import AsyncClient
+        firestore = _firestore
+        FIRESTORE_AVAILABLE = True
+    except ImportError:
+        pass
 
 # Collection name for technicians
 COLLECTION_NAME = "technicians"
 
 
-def _get_db() -> AsyncClient:
+def _get_db():
     """Get or create the Firestore async client."""
-    global _db
+    global _db, FIRESTORE_AVAILABLE
+    
+    if SKIP_FIRESTORE or not FIRESTORE_AVAILABLE:
+        return None
+    
     if _db is None:
-        _db = firestore.AsyncClient()
+        try:
+            _db = firestore.AsyncClient()
+        except Exception as e:
+            print(f"⚠️ Firestore not available: {e}")
+            FIRESTORE_AVAILABLE = False
+            return None
     return _db
+
 
 
 async def init_db():
@@ -32,12 +55,18 @@ async def init_db():
     Collections are created automatically when documents are added.
     """
     db = _get_db()
-    print(f"🔥 Firestore initialized - using collection: {COLLECTION_NAME}")
+    if db:
+        print(f"🔥 Firestore initialized - using collection: {COLLECTION_NAME}")
+    else:
+        print("⚠️ Running without Firestore - data will not persist")
 
 
 async def load_technicians() -> List[dict]:
     """Load all technicians from Firestore, ordered by queue_position."""
     db = _get_db()
+    if not db:
+        return []
+    
     collection = db.collection(COLLECTION_NAME)
     
     # Query all documents ordered by queue_position
@@ -64,6 +93,7 @@ async def load_technicians() -> List[dict]:
             "is_active": data.get("is_active", False),
             "status_start_time": status_start_time
         })
+
     
     return technicians
 
@@ -76,6 +106,9 @@ async def save_technician(tech: dict, update_status_time: bool = False) -> int:
         update_status_time: If True, set status_start_time to SERVER_TIMESTAMP
     """
     db = _get_db()
+    if not db:
+        return tech.get("id", 1)  # Return existing ID or 1 for new
+    
     collection = db.collection(COLLECTION_NAME)
     
     tech_id = tech.get("id")
@@ -118,6 +151,9 @@ async def get_next_technician_id() -> int:
     avoiding loading all technicians into memory.
     """
     db = _get_db()
+    if not db:
+        return 1
+    
     collection = db.collection(COLLECTION_NAME)
 
     # Query for the document with the highest ID (document IDs are strings of integers)
@@ -153,6 +189,8 @@ async def get_next_technician_id() -> int:
 async def delete_technician(tech_id: int):
     """Delete a technician from Firestore."""
     db = _get_db()
+    if not db:
+        return
     doc_ref = db.collection(COLLECTION_NAME).document(str(tech_id))
     await doc_ref.delete()
 
@@ -160,6 +198,9 @@ async def delete_technician(tech_id: int):
 async def save_all_technicians(technicians: List[dict]):
     """Save all technicians to Firestore (batch update)."""
     db = _get_db()
+    if not db:
+        return
+    
     batch = db.batch()
     collection = db.collection(COLLECTION_NAME)
     
@@ -186,6 +227,8 @@ async def update_technician_status(tech_id: int, status: str) -> None:
     This should be called whenever a technician's status changes.
     """
     db = _get_db()
+    if not db:
+        return
     doc_ref = db.collection(COLLECTION_NAME).document(str(tech_id))
     await doc_ref.update({
         "status": status,

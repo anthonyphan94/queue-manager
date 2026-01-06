@@ -10,14 +10,18 @@ import os
 from contextlib import asynccontextmanager
 from typing import List
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.routers import technicians_router, breaks_router
+from app.routers import technicians_router, breaks_router, marketing_router
 from app.routers.technicians import assign_router
 from app.services.turn_rules import TurnRulesService, TechnicianEntity
+
+# Load environment variables from .env file
+load_dotenv()
 
 # --- Configuration ---
 
@@ -40,7 +44,8 @@ try:
         update_technician_status
     )
     HAS_DATABASE = True
-except ImportError:
+except Exception as e:
+    logger.warning(f"Database not available: {e}. Running without persistence.")
     HAS_DATABASE = False
 
     async def update_technician_status(tech_id: int, status: str) -> None:
@@ -115,6 +120,7 @@ app.add_middleware(
 app.include_router(technicians_router)
 app.include_router(breaks_router)
 app.include_router(assign_router)
+app.include_router(marketing_router)
 
 
 # --- Health Check ---

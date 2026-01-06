@@ -67,6 +67,12 @@ jobs:
           project_id: ${{ env.GCP_PROJECT_ID }}
           image: ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           flags: '--allow-unauthenticated --port=8080 --memory=512Mi --cpu=1 --min-instances=0 --max-instances=10 --execution-environment=gen2'
+          secrets: |
+            TWILIO_ACCOUNT_SID=TWILIO_ACCOUNT_SID:latest
+            TWILIO_API_KEY_SID=TWILIO_API_KEY_SID:latest
+            TWILIO_API_KEY_SECRET=TWILIO_API_KEY_SECRET:latest
+            TWILIO_MESSAGING_SERVICE_SID=TWILIO_MESSAGING_SERVICE_SID:latest
+            MARKETING_PIN=MARKETING_PIN:latest
       - name: Show Service URL
         run: |
           echo "🚀 Deployed to: https://${{ env.SERVICE_NAME }}-${{ github.run_id }}.run.app"

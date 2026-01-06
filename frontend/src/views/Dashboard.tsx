@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTurnLogic } from '../hooks/useTurnLogic';
 import {
     QueueList,
@@ -88,14 +89,24 @@ export const Dashboard = () => {
                     <img src={logo} alt="Marilyn's Beauty Lounge" className="h-8 md:h-10 w-auto" />
                     <h1 className="text-base md:text-xl font-brand text-slate-800 hidden sm:block">MARILYN BEAUTY LOUNGE</h1>
                 </div>
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="min-h-[44px] min-w-[44px] px-2 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-lg transition-colors flex items-center gap-2 font-semibold text-sm"
-                >
-                    <TechniciansIcon />
-                    <span className="hidden sm:inline">Technicians</span>
-                </button>
+                <div className="flex items-center gap-2">
+                    <Link
+                        to="/marketing"
+                        className="min-h-[44px] min-w-[44px] px-3 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg transition-colors flex items-center gap-2 font-semibold text-sm"
+                    >
+                        <span>📱</span>
+                        <span className="hidden sm:inline">Marketing</span>
+                    </Link>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="min-h-[44px] min-w-[44px] px-2 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-lg transition-colors flex items-center gap-2 font-semibold text-sm"
+                    >
+                        <TechniciansIcon />
+                        <span className="hidden sm:inline">Technicians</span>
+                    </button>
+                </div>
             </header>
+
 
             {/* --- MODALS --- */}
             <StaffCheckInModal

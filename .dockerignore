@@ -1,47 +1,9 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-.venv/
-venv/
-ENV/
-.pytest_cache/
-*.egg-info/
-dist/
-build/
-
-# Node
-node_modules/
-frontend/node_modules/
-npm-debug.log*
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Git
-.git/
-.gitignore
-
-# Local development
-*.local
+frontend/node_modules
+frontend/dist
+backend/.venv
+backend/venv
+backend/__pycache__
+backend/*.pyc
+.git
 .env
-.env.*
-
-# Test files
-tests/
-**/__pycache__/
-*.test.*
-*.spec.*
-
-# Documentation
-*.md
-!README.md
-
-# Misc
 .DS_Store
-Thumbs.db

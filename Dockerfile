@@ -1,38 +1,38 @@
-# ========================================
-# Stage 1: Build React Frontend
-# ========================================
-FROM node:20-alpine AS frontend-builder
-
+# ==========================================
+# Stage 1: Build Frontend (Vite + React)
+# ==========================================
+FROM node:20-alpine as frontend-build
 WORKDIR /app/frontend
 
 # Copy package files first for better caching
 COPY frontend/package*.json ./
-
-# Install dependencies
-RUN npm ci --only=production=false
+RUN npm ci
 
 # Copy source and build
 COPY frontend/ ./
 RUN npm run build
 
-# ========================================
-# Stage 2: Production Python Image
-# ========================================
-# Stage 2: Production
+# ==========================================
+# Stage 2: Run Backend (FastAPI)
+# ==========================================
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy file requirements từ thư mục gốc vào /app
-COPY requirements.txt .
-
-# 1. Copy nội dung Backend ra root của /app
-COPY backend/ . 
-
-# 2. Copy NỘI DUNG của thư mục dist (sau khi build) vào /app/static
-# Lưu ý dấu / ở sau dist/ và static/ để copy nội dung, không copy cả folder
-COPY --from=frontend-builder /app/frontend/dist/ ./static/
-
-# 3. Cài đặt dependency và chạy app
+# Install dependencies
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+
+# Copy backend code
+COPY backend/ .
+
+# Copy built frontend assets to the static directory
+# main.py expects static files in ./static relative to itself
+COPY --from=frontend-build /app/frontend/dist /app/static
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+
+# Run the application
+# We use python main.py to leverage the port configuration logic in the script
+CMD ["python", "main.py"]
