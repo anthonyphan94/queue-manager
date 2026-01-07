@@ -152,7 +152,8 @@ class TurnRulesService:
             The newly created technician entity.
         """
         new_id = max((t.id for t in self.technicians), default=0) + 1
-        new_position = self.get_next_queue_position()
+        # Use list length + 1 for contiguous positions (not max+1 which can diverge after reset)
+        new_position = len(self.technicians) + 1
         
         new_tech = TechnicianEntity(
             id=new_id,
