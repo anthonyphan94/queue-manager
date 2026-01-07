@@ -1,10 +1,7 @@
 import { useState } from 'react';
 import { useMarketingStore } from '../../store/marketingStore';
 import { useAuthStore } from '../../store/authStore';
-
-// Use relative URLs in production, localhost in development
-const isDev = import.meta.env.DEV;
-const API_BASE = isDev ? 'http://localhost:8080' : '';
+import { API_BASE } from '../../utils/api';
 
 /**
  * ManualTab - Single SMS send form

@@ -14,10 +14,7 @@ import type {
     ReorderResponse,
     RemoveResponse,
 } from '../types';
-
-// Use relative URLs in production (served from same origin), localhost in development
-const isDev = import.meta.env.DEV;
-const API_URL = isDev ? 'http://localhost:8080' : '';
+import { API_BASE as API_URL } from '../utils/api';
 
 interface BreakResponse {
     tech_id: number;
