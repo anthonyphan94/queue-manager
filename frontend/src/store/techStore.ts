@@ -17,7 +17,7 @@ import type {
 
 // Use relative URLs in production (served from same origin), localhost in development
 const isDev = import.meta.env.DEV;
-const API_URL = isDev ? 'http://localhost:8000' : '';
+const API_URL = isDev ? 'http://localhost:8080' : '';
 
 interface BreakResponse {
     tech_id: number;
