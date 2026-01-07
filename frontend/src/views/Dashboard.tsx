@@ -34,6 +34,7 @@ export const Dashboard = () => {
         reorderQueue,
         takeBreak,
         returnFromBreak,
+        resetAllTechnicians,
     } = useTurnLogic();
 
     // Modal States
@@ -116,6 +117,10 @@ export const Dashboard = () => {
                 onToggle={toggleActive}
                 onAddTech={handleAddTech}
                 onRemove={handleRemoveTech}
+                onResetAll={async () => {
+                    await resetAllTechnicians();
+                    setIsModalOpen(false);
+                }}
             />
 
             {/* --- MAIN CONTENT --- Single page scroll on mobile */}

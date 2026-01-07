@@ -29,6 +29,7 @@ interface UseTurnLogicReturn {
     reorderQueue: (techIds: number[]) => Promise<void>;
     takeBreak: (techId: number) => Promise<void>;
     returnFromBreak: (techId: number) => Promise<void>;
+    resetAllTechnicians: () => Promise<void>;
 }
 
 export const useTurnLogic = (): UseTurnLogicReturn => {
@@ -47,6 +48,7 @@ export const useTurnLogic = (): UseTurnLogicReturn => {
         reorderQueue: storeReorderQueue,
         takeBreak: storeTakeBreak,
         returnFromBreak: storeReturnFromBreak,
+        resetAllTechnicians: storeResetAllTechnicians,
     } = useTechStore();
 
     // Memoized derived state: Queue (available and active technicians)
@@ -191,6 +193,7 @@ export const useTurnLogic = (): UseTurnLogicReturn => {
         reorderQueue,
         takeBreak,
         returnFromBreak,
+        resetAllTechnicians: storeResetAllTechnicians,
     };
 };
 

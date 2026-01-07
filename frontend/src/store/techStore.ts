@@ -25,6 +25,12 @@ interface BreakResponse {
     status_start_time: string | null;
 }
 
+interface ResetResponse {
+    success: boolean;
+    deleted_from_firestore: number;
+    message: string;
+}
+
 interface TechStore {
     technicians: Technician[];
     firestoreConnected: boolean;
@@ -45,6 +51,7 @@ interface TechStore {
     removeTech: (techId: number) => Promise<RemoveResponse>;
     takeBreak: (techId: number) => Promise<BreakResponse>;
     returnFromBreak: (techId: number) => Promise<BreakResponse>;
+    resetAllTechnicians: () => Promise<ResetResponse>;
 }
 
 export const useTechStore = create<TechStore>((set, get) => ({
@@ -214,6 +221,15 @@ export const useTechStore = create<TechStore>((set, get) => ({
             body: JSON.stringify({ tech_id: techId }),
         });
         if (!res.ok) throw new Error('Failed to return from break');
+        return res.json();
+    },
+
+    // Reset all technicians (admin - clears Firestore)
+    resetAllTechnicians: async (): Promise<ResetResponse> => {
+        const res = await fetch(`${API_URL}/admin/reset-technicians`, {
+            method: 'POST',
+        });
+        if (!res.ok) throw new Error('Failed to reset technicians');
         return res.json();
     },
 }));

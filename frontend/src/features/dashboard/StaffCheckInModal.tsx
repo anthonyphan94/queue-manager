@@ -15,6 +15,7 @@ interface StaffCheckInModalProps {
     onToggle: (techId: number) => void;
     onAddTech: (name: string) => void;
     onRemove: (techId: number) => void;
+    onResetAll: () => Promise<void>;
 }
 
 export const StaffCheckInModal = ({
@@ -24,9 +25,12 @@ export const StaffCheckInModal = ({
     onToggle,
     onAddTech,
     onRemove,
+    onResetAll,
 }: StaffCheckInModalProps) => {
     const [showAddInput, setShowAddInput] = useState(false);
     const [newTechName, setNewTechName] = useState('');
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
 
     // Lock body scroll when modal is open
     useBodyScrollLock(isOpen);
@@ -180,16 +184,62 @@ export const StaffCheckInModal = ({
                 </div>
 
                 <div className="bottom-sheet-footer">
-                    <button
-                        onClick={onClose}
-                        className="w-full min-h-[48px] font-bold rounded-xl transition-all duration-200 shadow-md text-base"
-                        style={{
-                            backgroundColor: 'var(--color-primary)',
-                            color: 'var(--color-text-inverse)'
-                        }}
-                    >
-                        Done
-                    </button>
+                    {/* Reset Confirmation Dialog */}
+                    {showResetConfirm && (
+                        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                            <p className="text-red-800 font-semibold mb-3 text-center">
+                                ⚠️ Delete ALL technicians?
+                            </p>
+                            <p className="text-red-600 text-sm mb-4 text-center">
+                                This will permanently remove everyone from the system.
+                            </p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={async () => {
+                                        setIsResetting(true);
+                                        try {
+                                            await onResetAll();
+                                            setShowResetConfirm(false);
+                                        } catch (err) {
+                                            console.error('Reset failed:', err);
+                                        } finally {
+                                            setIsResetting(false);
+                                        }
+                                    }}
+                                    disabled={isResetting}
+                                    className="flex-1 min-h-[44px] font-bold rounded-xl bg-red-600 text-white disabled:opacity-50"
+                                >
+                                    {isResetting ? 'Deleting...' : 'Yes, Delete All'}
+                                </button>
+                                <button
+                                    onClick={() => setShowResetConfirm(false)}
+                                    className="flex-1 min-h-[44px] font-semibold rounded-xl bg-slate-200 text-slate-700"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Main Buttons */}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setShowResetConfirm(true)}
+                            className="min-h-[48px] px-4 font-semibold rounded-xl transition-all duration-200 border-2 border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                            Reset All
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="flex-1 min-h-[48px] font-bold rounded-xl transition-all duration-200 shadow-md text-base"
+                            style={{
+                                backgroundColor: 'var(--color-primary)',
+                                color: 'var(--color-text-inverse)'
+                            }}
+                        >
+                            Done
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
