@@ -1,7 +1,8 @@
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useMarketingStore, type Row } from '../../store/marketingStore';
 import { useAuthStore } from '../../store/authStore';
 import { API_BASE } from '../../utils/api';
+import { CsvDropzone, SendResultsPanel, ConfirmModal, UndoToast } from './components';
 
 /**
  * CsvImportTab - Mail-style CSV import with bulk selection and removal
@@ -45,39 +46,14 @@ export function CsvImportTab() {
         clearResults,
     } = useMarketingStore();
 
-    const [isDragOver, setIsDragOver] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
     const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
-
     const tableContainerRef = useRef<HTMLDivElement>(null);
 
     // Computed values
     const counts = getCounts();
     const excludedRows = getExcludedRows();
-
-    // === DRAG & DROP HANDLERS ===
-    const handleDragOver = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragOver(true);
-    }, []);
-
-    const handleDragLeave = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragOver(false);
-    }, []);
-
-    const handleDrop = useCallback(async (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragOver(false);
-        const file = e.dataTransfer.files[0];
-        if (file) await uploadFile(file);
-    }, []);
-
-    const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) await uploadFile(file);
-    }, []);
 
     // === UPLOAD HANDLER ===
     const uploadFile = async (file: File) => {
@@ -109,7 +85,6 @@ export function CsvImportTab() {
             // Transform API response to Row model
             const importedRows: Row[] = [];
 
-            // Add valid contacts as "ready" rows
             data.contacts.forEach((c: any, idx: number) => {
                 importedRows.push({
                     id: `row-${idx}`,
@@ -121,7 +96,6 @@ export function CsvImportTab() {
                 });
             });
 
-            // Add error rows as "excluded" rows
             data.errors.forEach((errMsg: string, idx: number) => {
                 const match = errMsg.match(/Row (\d+)/);
                 const rowNum = match ? parseInt(match[1]) : importedRows.length + idx + 1;
@@ -135,9 +109,7 @@ export function CsvImportTab() {
                 });
             });
 
-            // Sort by rowIndex
             importedRows.sort((a, b) => a.rowIndex - b.rowIndex);
-
             setImportData(importedRows);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to upload file');
@@ -192,29 +164,7 @@ export function CsvImportTab() {
         <div className="csv-tab">
             {/* === UPLOAD AREA === */}
             {!hasData && !hasResults && (
-                <div
-                    className={`dropzone ${isDragOver ? 'active' : ''} ${isUploading ? 'uploading' : ''}`}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                >
-                    <div className="dropzone-content">
-                        <svg className="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="17 8 12 3 7 8" />
-                            <line x1="12" y1="3" x2="12" y2="15" />
-                        </svg>
-                        <p className="dropzone-text">
-                            {isUploading ? 'Processing...' : 'Drag & drop your CSV file here'}
-                        </p>
-                        <p className="dropzone-hint">or</p>
-                        <label className="file-select-button">
-                            Browse Files
-                            <input type="file" accept=".csv" onChange={handleFileSelect} disabled={isUploading} hidden />
-                        </label>
-                        <p className="format-hint">Column A: Name, Column B: Phone Number</p>
-                    </div>
-                </div>
+                <CsvDropzone isUploading={isUploading} onFileSelect={uploadFile} />
             )}
 
             {/* === PREVIEW TABLE === */}
@@ -407,93 +357,35 @@ export function CsvImportTab() {
 
             {/* === RESULTS === */}
             {hasResults && (
-                <div className="results-section">
-                    <div className="results-summary">
-                        <div className="result-stat sent">
-                            <span className="count">{sendResults.filter(r => r.status === 'sent').length}</span>
-                            <span className="label">Sent</span>
-                        </div>
-                        <div className="result-stat failed">
-                            <span className="count">{sendResults.filter(r => r.status === 'failed').length}</span>
-                            <span className="label">Failed</span>
-                        </div>
-                    </div>
-
-                    <div className="results-table-container">
-                        <table className="results-table">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Phone</th>
-                                    <th>Status</th>
-                                    <th>Details</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {sendResults.map((result, i) => (
-                                    <tr key={i} className={result.status}>
-                                        <td>{result.name}</td>
-                                        <td>{result.phone}</td>
-                                        <td>
-                                            <span className={`status-badge ${result.status}`}>
-                                                {result.status === 'sent' ? '✓' : '✗'}
-                                            </span>
-                                        </td>
-                                        <td className="details">
-                                            {result.status === 'sent' ? result.sid : result.error}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <button className="new-broadcast-button" onClick={clearAllData}>
-                        New Broadcast
-                    </button>
-                </div>
+                <SendResultsPanel results={sendResults} onNewBroadcast={clearAllData} />
             )}
 
             {/* === ERROR MESSAGE === */}
             {error && <div className="error-message">{error}</div>}
 
-            {/* === E) UNDO TOAST === */}
+            {/* === UNDO TOAST === */}
             {toast && (
-                <div className="undo-toast">
-                    <span className="toast-message">{toast.message}</span>
-                    {toast.showUndo && (
-                        <button className="toast-undo-btn" onClick={undoRemove} type="button">
-                            Undo
-                        </button>
-                    )}
-                    <button className="toast-close-btn" onClick={dismissToast} type="button" aria-label="Dismiss">
-                        ✕
-                    </button>
-                </div>
+                <UndoToast
+                    message={toast.message}
+                    showUndo={toast.showUndo}
+                    onUndo={undoRemove}
+                    onDismiss={dismissToast}
+                />
             )}
 
             {/* === REMOVE CSV CONFIRMATION MODAL === */}
             {showRemoveConfirm && (
-                <div className="confirm-modal-backdrop" onClick={() => setShowRemoveConfirm(false)}>
-                    <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
-                        <h3>Remove CSV?</h3>
-                        <p>This will clear all imported data, including {counts.imported} rows and {counts.included} included selections.</p>
-                        <div className="confirm-modal-actions">
-                            <button className="confirm-cancel-btn" onClick={() => setShowRemoveConfirm(false)}>
-                                Cancel
-                            </button>
-                            <button
-                                className="confirm-remove-btn"
-                                onClick={() => {
-                                    clearAllData();
-                                    setShowRemoveConfirm(false);
-                                }}
-                            >
-                                Remove CSV
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <ConfirmModal
+                    title="Remove CSV?"
+                    message={`This will clear all imported data, including ${counts.imported} rows and ${counts.included} included selections.`}
+                    confirmLabel="Remove CSV"
+                    cancelLabel="Cancel"
+                    onConfirm={() => {
+                        clearAllData();
+                        setShowRemoveConfirm(false);
+                    }}
+                    onCancel={() => setShowRemoveConfirm(false)}
+                />
             )}
         </div>
     );
