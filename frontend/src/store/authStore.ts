@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// Use relative URLs in production (served from same origin), localhost in development
+const isDev = import.meta.env.DEV;
+const API_BASE = isDev ? 'http://localhost:8080' : '';
 const AUTH_KEY = 'marketing_authenticated';
 
 /**
