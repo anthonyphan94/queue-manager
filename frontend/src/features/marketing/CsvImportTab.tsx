@@ -2,7 +2,9 @@ import { useCallback, useState, useRef, useEffect } from 'react';
 import { useMarketingStore, type Row } from '../../store/marketingStore';
 import { useAuthStore } from '../../store/authStore';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// Use relative URLs in production, localhost in development
+const isDev = import.meta.env.DEV;
+const API_BASE = isDev ? 'http://localhost:8080' : '';
 
 /**
  * CsvImportTab - Mail-style CSV import with bulk selection and removal
