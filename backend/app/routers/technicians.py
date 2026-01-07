@@ -102,6 +102,9 @@ async def remove_tech(tech_id: int):
 
         if deps["HAS_DATABASE"] and deps["db_delete_tech"]:
             await deps["db_delete_tech"](tech_id)
+            # Save all remaining technicians to persist the repacked queue positions
+            if deps["save_all_technicians"]:
+                await deps["save_all_technicians"](deps["turn_service"].get_all_techs_sorted())
 
         await deps["broadcast_update"]()
         return RemoveResponse(tech_id=tech_id)
