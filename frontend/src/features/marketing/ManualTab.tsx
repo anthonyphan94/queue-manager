@@ -37,7 +37,7 @@ export function ManualTab() {
             const data = await response.json();
 
             if (data.success) {
-                setSuccess(`SMS sent successfully! SID: ${data.sid}`);
+                setSuccess('SMS sent successfully.');
                 // Clear form
                 setName('');
                 setPhone('');

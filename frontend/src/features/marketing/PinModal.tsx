@@ -17,6 +17,14 @@ export function PinModal() {
         inputRefs.current[0]?.focus();
     }, []);
 
+    // Clear PIN and refocus when error occurs
+    useEffect(() => {
+        if (error) {
+            setPin(['', '', '', '']);
+            inputRefs.current[0]?.focus();
+        }
+    }, [error]);
+
     const handleChange = (index: number, value: string) => {
         // Only allow digits
         if (value && !/^\d$/.test(value)) return;
