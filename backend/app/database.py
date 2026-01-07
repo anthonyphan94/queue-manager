@@ -200,6 +200,32 @@ async def delete_technician(tech_id: int):
     await doc_ref.delete()
 
 
+async def delete_all_technicians() -> int:
+    """Delete ALL technicians from Firestore and reset the ID counter.
+    
+    Returns the number of deleted technicians.
+    """
+    db = _get_db()
+    if not db:
+        return 0
+    
+    collection = db.collection(COLLECTION_NAME)
+    deleted_count = 0
+    
+    # Get all technician documents
+    docs = collection.stream()
+    async for doc in docs:
+        await doc.reference.delete()
+        deleted_count += 1
+    
+    # Reset the ID counter
+    counter_ref = db.collection("_counters").document("technicians")
+    await counter_ref.set({"next_id": 1})
+    
+    print(f"[delete_all_technicians] Deleted {deleted_count} technicians, reset ID counter")
+    return deleted_count
+
+
 async def save_all_technicians(technicians: List[dict]):
     """Save all technicians to Firestore (batch update)."""
     db = _get_db()

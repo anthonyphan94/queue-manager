@@ -42,6 +42,7 @@ try:
         save_technician as db_save_tech,
         delete_technician as db_delete_tech,
         update_technician_status,
+        delete_all_technicians,
         FIRESTORE_AVAILABLE
     )
     HAS_DATABASE = True
@@ -149,7 +150,31 @@ async def health_check():
     }
 
 
-# --- Static File Serving (Production) ---
+@app.post("/admin/reset-technicians")
+async def reset_all_technicians():
+    """ADMIN: Delete all technicians from Firestore and reset in-memory state.
+    
+    WARNING: This will delete ALL technicians permanently!
+    """
+    global technicians, turn_service
+    
+    deleted_count = 0
+    if HAS_DATABASE:
+        deleted_count = await delete_all_technicians()
+    
+    # Clear in-memory state
+    technicians.clear()
+    turn_service = TurnRulesService(technicians)
+    
+    logger.info(f"Reset technicians: deleted {deleted_count} from Firestore, cleared in-memory state")
+    
+    return {
+        "success": True,
+        "deleted_from_firestore": deleted_count,
+        "message": "All technicians deleted. Start fresh!"
+    }
+
+
 
 if os.path.isdir(STATIC_DIR):
     app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="assets")
