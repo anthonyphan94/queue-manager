@@ -128,6 +128,17 @@ class TurnRulesService:
             return 1
         return max(t.queue_position for t in self.technicians) + 1
 
+    def _repack_positions(self) -> None:
+        """
+        Re-pack queue_position to contiguous 1..N.
+        
+        Maintains relative order while eliminating gaps.
+        Called after mutations that could create gaps (remove, complete, return from break).
+        """
+        sorted_techs = sorted(self.technicians, key=lambda t: t.queue_position)
+        for i, tech in enumerate(sorted_techs):
+            tech.queue_position = i + 1
+
     # --- State Mutation Methods ---
 
     def add_technician(self, name: str) -> TechnicianEntity:
@@ -166,6 +177,7 @@ class TurnRulesService:
         """
         tech = self.get_tech_by_id_or_raise(tech_id)
         self.technicians.remove(tech)
+        self._repack_positions()  # Re-pack to fill gap
 
     def assign_tech(self, tech_id: int) -> TechnicianEntity:
         """
@@ -233,6 +245,7 @@ class TurnRulesService:
         
         # Move to bottom of queue
         tech.queue_position = self.get_next_queue_position()
+        self._repack_positions()  # Re-pack to maintain contiguous positions
         
         return tech
 
@@ -300,6 +313,7 @@ class TurnRulesService:
         tech.status = "AVAILABLE"
         # status_start_time will be set by Firestore SERVER_TIMESTAMP
         tech.queue_position = self.get_next_queue_position()
+        self._repack_positions()  # Re-pack to maintain contiguous positions
         return tech
 
     # --- Serialization Methods ---

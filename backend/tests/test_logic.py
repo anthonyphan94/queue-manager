@@ -62,10 +62,10 @@ def test_complete_turn_moves_to_bottom():
 
     service = TurnRulesService([tech1, tech2])
 
-    # Complete Alice's turn - should move to position 3 (max + 1)
+    # Complete Alice's turn - should move to position 2 (repacked: Bob=1, Alice=2)
     service.handle_tech_completion(tech_id=1, is_request=False)
 
-    assert tech1.queue_position == 3
+    assert tech1.queue_position == 2  # Repacked: contiguous positions
     assert tech1.status == "AVAILABLE"
 
 
@@ -167,7 +167,7 @@ def test_return_from_break():
     service.return_from_break(1)
 
     assert tech1.status == "AVAILABLE"
-    assert tech1.queue_position == 3  # Moved to bottom
+    assert tech1.queue_position == 2  # Repacked: Bob=1, Alice=2
 
 
 def test_reorder_queue():
