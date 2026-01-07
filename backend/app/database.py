@@ -65,37 +65,42 @@ async def load_technicians() -> List[dict]:
     """Load all technicians from Firestore, ordered by queue_position."""
     db = _get_db()
     if not db:
+        print("[load_technicians] No database connection available")
         return []
     
-    collection = db.collection(COLLECTION_NAME)
-    
-    # Query all documents ordered by queue_position
-    query = collection.order_by("queue_position")
-    docs = query.stream()
-    
-    technicians = []
-    async for doc in docs:
-        data = doc.to_dict()
+    try:
+        collection = db.collection(COLLECTION_NAME)
         
-        # Handle status_start_time - convert Firestore timestamp to ISO string
-        status_start_time = data.get("status_start_time")
-        if status_start_time and hasattr(status_start_time, 'isoformat'):
-            status_start_time = status_start_time.isoformat()
-        elif status_start_time and hasattr(status_start_time, 'timestamp'):
-            # Firestore Timestamp object
-            status_start_time = status_start_time.timestamp()
+        # Query all documents ordered by queue_position
+        query = collection.order_by("queue_position")
+        docs = query.stream()
         
-        technicians.append({
-            "id": int(doc.id),  # Document ID is the technician ID
-            "name": data.get("name", ""),
-            "status": data.get("status", "AVAILABLE"),
-            "queue_position": data.get("queue_position", 0),
-            "is_active": data.get("is_active", False),
-            "status_start_time": status_start_time
-        })
+        technicians = []
+        async for doc in docs:
+            data = doc.to_dict()
+            
+            # Handle status_start_time - convert Firestore timestamp to ISO string
+            status_start_time = data.get("status_start_time")
+            if status_start_time and hasattr(status_start_time, 'isoformat'):
+                status_start_time = status_start_time.isoformat()
+            elif status_start_time and hasattr(status_start_time, 'timestamp'):
+                # Firestore Timestamp object
+                status_start_time = status_start_time.timestamp()
+            
+            technicians.append({
+                "id": int(doc.id),  # Document ID is the technician ID
+                "name": data.get("name", ""),
+                "status": data.get("status", "AVAILABLE"),
+                "queue_position": data.get("queue_position", 0),
+                "is_active": data.get("is_active", False),
+                "status_start_time": status_start_time
+            })
 
-    
-    return technicians
+        print(f"[load_technicians] Successfully loaded {len(technicians)} technicians from Firestore")
+        return technicians
+    except Exception as e:
+        print(f"[load_technicians] Error loading technicians: {e}")
+        return []
 
 
 async def save_technician(tech: dict, update_status_time: bool = False) -> int:

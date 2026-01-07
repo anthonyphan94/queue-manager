@@ -73,24 +73,33 @@ async def lifespan(app: FastAPI):
     global technicians, turn_service
 
     if HAS_DATABASE:
-        await init_db()
-        loaded = await load_technicians()
-        for t in loaded:
-            technicians.append(TechnicianEntity(
-                id=t["id"],
-                name=t["name"],
-                status=t["status"],
-                queue_position=t["queue_position"],
-                is_active=t["is_active"],
-                status_start_time=None
-            ))
-        logger.info(f"Loaded {len(technicians)} technicians from database")
+        try:
+            await init_db()
+            loaded = await load_technicians()
+            logger.info(f"load_technicians returned {len(loaded)} technicians")
+            for t in loaded:
+                technicians.append(TechnicianEntity(
+                    id=t["id"],
+                    name=t["name"],
+                    status=t["status"],
+                    queue_position=t["queue_position"],
+                    is_active=t["is_active"],
+                    status_start_time=None
+                ))
+            logger.info(f"Loaded {len(technicians)} technicians from database")
+        except Exception as e:
+            logger.error(f"Failed to load technicians from database: {e}", exc_info=True)
+    else:
+        logger.warning("HAS_DATABASE is False - running without persistence")
 
     yield
 
     if HAS_DATABASE and technicians:
-        await save_all_technicians(turn_service.get_all_techs_sorted())
-        logger.info("Saved technicians to database on shutdown")
+        try:
+            await save_all_technicians(turn_service.get_all_techs_sorted())
+            logger.info("Saved technicians to database on shutdown")
+        except Exception as e:
+            logger.error(f"Failed to save technicians on shutdown: {e}", exc_info=True)
 
 
 # --- App Setup ---
