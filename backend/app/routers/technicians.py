@@ -32,7 +32,7 @@ def get_dependencies():
 
     This is imported at runtime to avoid circular imports.
     """
-    from main import turn_service, HAS_DATABASE, broadcast_update
+    from main import turn_service, HAS_DATABASE, broadcast_update, reload_technicians_from_db
     try:
         from app.database import (
             save_technician as db_save_tech,
@@ -50,6 +50,7 @@ def get_dependencies():
         "turn_service": turn_service,
         "HAS_DATABASE": HAS_DATABASE,
         "broadcast_update": broadcast_update,
+        "reload_from_db": reload_technicians_from_db,
         "db_save_tech": db_save_tech,
         "db_delete_tech": db_delete_tech,
         "save_all_technicians": save_all_technicians,
@@ -68,6 +69,9 @@ async def list_techs():
 async def add_tech(tech: TechnicianCreate):
     """Add a new technician to the roster."""
     deps = get_dependencies()
+    
+    # Reload from Firestore to ensure multi-instance consistency
+    await deps["reload_from_db"]()
     turn_service = deps["turn_service"]
 
     new_tech = turn_service.add_technician(tech.name)
@@ -96,6 +100,9 @@ async def add_tech(tech: TechnicianCreate):
 async def remove_tech(tech_id: int):
     """Remove a technician from the roster permanently."""
     deps = get_dependencies()
+    
+    # Reload from Firestore to ensure multi-instance consistency
+    await deps["reload_from_db"]()
 
     try:
         deps["turn_service"].remove_technician(tech_id)

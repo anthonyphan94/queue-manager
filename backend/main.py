@@ -67,6 +67,40 @@ async def broadcast_update() -> None:
     pass
 
 
+# --- Reload Helper (for multi-instance consistency) ---
+
+async def reload_technicians_from_db() -> None:
+    """Reload technicians from Firestore to ensure fresh state before mutations.
+    
+    This prevents multi-instance state divergence where one Cloud Run instance
+    may have stale in-memory state after another instance modified Firestore.
+    
+    Should be called before any mutation operation (add, remove, etc.).
+    """
+    global technicians, turn_service
+    
+    if not HAS_DATABASE:
+        return
+    
+    try:
+        loaded = await load_technicians()
+        technicians.clear()
+        for t in loaded:
+            technicians.append(TechnicianEntity(
+                id=t["id"],
+                name=t["name"],
+                status=t["status"],
+                queue_position=t["queue_position"],
+                is_active=t["is_active"],
+                status_start_time=None
+            ))
+        # Recreate turn_service with fresh data
+        turn_service = TurnRulesService(technicians)
+        logger.debug(f"Reloaded {len(technicians)} technicians from Firestore")
+    except Exception as e:
+        logger.error(f"Failed to reload technicians: {e}", exc_info=True)
+
+
 # --- Lifespan (startup/shutdown) ---
 
 @asynccontextmanager
