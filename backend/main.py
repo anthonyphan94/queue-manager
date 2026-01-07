@@ -41,7 +41,8 @@ try:
         save_all_technicians,
         save_technician as db_save_tech,
         delete_technician as db_delete_tech,
-        update_technician_status
+        update_technician_status,
+        FIRESTORE_AVAILABLE
     )
     HAS_DATABASE = True
 except Exception as e:
@@ -136,8 +137,16 @@ app.include_router(marketing_router)
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for Cloud Run."""
-    return {"status": "healthy", "version": "2.0.0"}
+    """Health check endpoint for Cloud Run with debug info."""
+    return {
+        "status": "healthy",
+        "version": "2.0.0",
+        "debug": {
+            "technician_count": len(technicians),
+            "has_database": HAS_DATABASE,
+            "firestore_available": FIRESTORE_AVAILABLE
+        }
+    }
 
 
 # --- Static File Serving (Production) ---
