@@ -41,7 +41,7 @@ def _get_db():
         try:
             _db = firestore.AsyncClient()
         except Exception as e:
-            print(f"⚠️ Firestore not available: {e}")
+            print(f"[Warning] Firestore not available: {e}")
             FIRESTORE_AVAILABLE = False
             return None
     return _db
@@ -56,9 +56,9 @@ async def init_db():
     """
     db = _get_db()
     if db:
-        print(f"🔥 Firestore initialized - using collection: {COLLECTION_NAME}")
+        print(f"[Firestore] Initialized - using collection: {COLLECTION_NAME}")
     else:
-        print("⚠️ Running without Firestore - data will not persist")
+        print("[Warning] Running without Firestore - data will not persist")
 
 
 async def load_technicians() -> List[dict]:
@@ -223,7 +223,7 @@ async def save_all_technicians(technicians: List[dict]):
 
 async def update_technician_status(tech_id: int, status: str) -> None:
     """Update a technician's status and set status_start_time to SERVER_TIMESTAMP.
-    
+
     This should be called whenever a technician's status changes.
     """
     db = _get_db()
@@ -234,3 +234,71 @@ async def update_technician_status(tech_id: int, status: str) -> None:
         "status": status,
         "status_start_time": firestore.SERVER_TIMESTAMP
     })
+
+
+# --- Settings Collection (Marketing PIN, etc.) ---
+
+SETTINGS_COLLECTION = "settings"
+
+
+async def get_marketing_pin_hash() -> Optional[str]:
+    """Get the hashed marketing PIN from Firestore.
+
+    Returns None if no PIN is set or Firestore is unavailable.
+    """
+    db = _get_db()
+    if not db:
+        return None
+
+    doc_ref = db.collection(SETTINGS_COLLECTION).document("marketing")
+    doc = await doc_ref.get()
+
+    if doc.exists:
+        return doc.to_dict().get("pin_hash")
+    return None
+
+
+async def set_marketing_pin_hash(pin_hash: str) -> bool:
+    """Set the hashed marketing PIN in Firestore.
+
+    Args:
+        pin_hash: The bcrypt-hashed PIN to store
+
+    Returns:
+        True if successful, False if Firestore unavailable
+    """
+    db = _get_db()
+    if not db:
+        return False
+
+    doc_ref = db.collection(SETTINGS_COLLECTION).document("marketing")
+    await doc_ref.set({
+        "pin_hash": pin_hash,
+        "updated_at": firestore.SERVER_TIMESTAMP
+    }, merge=True)
+    return True
+
+
+async def initialize_marketing_pin(default_pin: str) -> bool:
+    """Initialize the marketing PIN if not already set.
+
+    Args:
+        default_pin: The plaintext default PIN to hash and store
+
+    Returns:
+        True if initialized (or already exists), False if Firestore unavailable
+    """
+    import bcrypt
+
+    db = _get_db()
+    if not db:
+        return False
+
+    # Check if PIN already exists
+    existing = await get_marketing_pin_hash()
+    if existing:
+        return True  # Already initialized
+
+    # Hash and store the default PIN
+    pin_hash = bcrypt.hashpw(default_pin.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    return await set_marketing_pin_hash(pin_hash)

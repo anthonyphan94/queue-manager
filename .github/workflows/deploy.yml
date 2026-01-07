@@ -72,7 +72,6 @@ jobs:
             TWILIO_API_KEY_SID=TWILIO_API_KEY_SID:latest
             TWILIO_API_KEY_SECRET=TWILIO_API_KEY_SECRET:latest
             TWILIO_MESSAGING_SERVICE_SID=TWILIO_MESSAGING_SERVICE_SID:latest
-            MARKETING_PIN=MARKETING_PIN:latest
       - name: Show Service URL
         run: |
           echo "🚀 Deployed to: https://${{ env.SERVICE_NAME }}-${{ github.run_id }}.run.app"

@@ -25,7 +25,7 @@ from app.services.twilio_service import (
     send_sms,
     send_batch_sms
 )
-from app.auth import verify_pin, verify_pin_endpoint
+from app.auth import verify_pin, verify_pin_endpoint, change_pin
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,18 @@ class VerifyPinRequest(BaseModel):
 class VerifyPinResponse(BaseModel):
     """Response from PIN verification."""
     valid: bool
+    message: str
+
+
+class ChangePinRequest(BaseModel):
+    """Request body for changing PIN."""
+    current_pin: str = Field(..., min_length=1, description="Current PIN")
+    new_pin: str = Field(..., min_length=4, max_length=20, description="New PIN (4-20 characters)")
+
+
+class ChangePinResponse(BaseModel):
+    """Response from PIN change."""
+    success: bool
     message: str
 
 
@@ -179,18 +191,36 @@ def parse_csv_file(file_content: bytes) -> PreviewResponse:
 async def verify_pin_route(request: VerifyPinRequest):
     """
     Verify the marketing PIN.
-    
+
     Returns whether the provided PIN is valid.
     This is a public endpoint - no authentication required.
     """
-    is_valid = verify_pin_endpoint(request.pin)
-    
+    is_valid = await verify_pin_endpoint(request.pin)
+
     if is_valid:
         logger.info("Marketing PIN verified successfully")
         return VerifyPinResponse(valid=True, message="PIN verified successfully")
     else:
         logger.warning("Invalid marketing PIN attempt")
         return VerifyPinResponse(valid=False, message="Invalid PIN")
+
+
+@router.post("/change-pin", response_model=ChangePinResponse)
+async def change_pin_route(request: ChangePinRequest):
+    """
+    Change the marketing PIN.
+
+    Requires current PIN for verification.
+    New PIN must be 4-20 characters.
+    """
+    success, message = await change_pin(request.current_pin, request.new_pin)
+
+    if success:
+        logger.info("Marketing PIN changed successfully")
+    else:
+        logger.warning(f"Failed to change marketing PIN: {message}")
+
+    return ChangePinResponse(success=success, message=message)
 
 
 @router.post("/preview-csv", response_model=PreviewResponse)

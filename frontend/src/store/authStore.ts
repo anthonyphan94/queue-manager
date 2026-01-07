@@ -8,6 +8,11 @@ const AUTH_KEY = 'marketing_authenticated';
  * 
  * Stores PIN in sessionStorage (cleared when browser closes).
  */
+interface ChangePinResult {
+    success: boolean;
+    message: string;
+}
+
 interface AuthState {
     isAuthenticated: boolean;
     pin: string | null;
@@ -16,6 +21,7 @@ interface AuthState {
 
     // Actions
     verifyPin: (pin: string) => Promise<boolean>;
+    changePin: (currentPin: string, newPin: string) => Promise<ChangePinResult>;
     logout: () => void;
     checkStoredAuth: () => void;
     getAuthHeader: () => { 'X-Marketing-Pin': string } | {};
@@ -51,6 +57,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } catch (err) {
             set({ isVerifying: false, error: 'Connection error. Please try again.' });
             return false;
+        }
+    },
+
+    changePin: async (currentPin: string, newPin: string): Promise<ChangePinResult> => {
+        try {
+            const response = await fetch(`${API_BASE}/marketing/change-pin`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ current_pin: currentPin, new_pin: newPin }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Update stored PIN to the new one
+                sessionStorage.setItem(AUTH_KEY, newPin);
+                set({ pin: newPin });
+            }
+
+            return { success: data.success, message: data.message };
+        } catch {
+            return { success: false, message: 'Connection error. Please try again.' };
         }
     },
 

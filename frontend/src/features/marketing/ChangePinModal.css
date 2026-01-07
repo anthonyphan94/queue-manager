@@ -1,0 +1,187 @@
+/* Change PIN Modal Styles */
+
+.change-pin-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.change-pin-modal {
+    background: white;
+    border-radius: 20px;
+    padding: 1.5rem;
+    max-width: 380px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.change-pin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.change-pin-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.close-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.close-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Form Fields */
+.change-pin-field {
+    margin-bottom: 1rem;
+}
+
+.change-pin-field label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.change-pin-field input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    border: 2px solid #fecdd3;
+    border-radius: 12px;
+    background: #fff;
+    font-size: 1rem;
+    color: #1e293b;
+    transition: all 0.15s ease;
+}
+
+.change-pin-field input:focus {
+    outline: none;
+    border-color: #e11d48;
+    box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.15);
+}
+
+.change-pin-field input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.change-pin-field input::placeholder {
+    color: #94a3b8;
+}
+
+/* Error Message */
+.change-pin-error {
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 10px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    font-size: 0.9rem;
+}
+
+/* Actions */
+.change-pin-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.cancel-btn {
+    flex: 1;
+    padding: 0.875rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: white;
+    color: #64748b;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.cancel-btn:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.cancel-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.submit-btn {
+    flex: 1;
+    padding: 0.875rem;
+    border: none;
+    border-radius: 12px;
+    background: #e11d48;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.submit-btn:hover:not(:disabled) {
+    background: #be123c;
+}
+
+.submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Success State */
+.change-pin-success {
+    text-align: center;
+    padding: 2rem 1rem;
+}
+
+.success-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    background: #dcfce7;
+    color: #16a34a;
+    font-size: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.change-pin-success h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.change-pin-success p {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.95rem;
+}

@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMarketingStore } from '../store/marketingStore';
 import { useAuthStore } from '../store/authStore';
 import { ManualTab } from '../features/marketing/ManualTab';
 import { CsvImportTab } from '../features/marketing/CsvImportTab';
 import { PinModal } from '../features/marketing/PinModal';
+import { ChangePinModal } from '../features/marketing/ChangePinModal';
 import '../features/marketing/Marketing.css';
 
 /**
@@ -22,6 +23,7 @@ import '../features/marketing/Marketing.css';
 export default function Marketing() {
     const { activeTab, setActiveTab } = useMarketingStore();
     const { isAuthenticated, checkStoredAuth, logout } = useAuthStore();
+    const [showChangePinModal, setShowChangePinModal] = useState(false);
 
     // Check for stored auth on mount
     useEffect(() => {
@@ -36,11 +38,24 @@ export default function Marketing() {
     return (
         <div className="marketing-page">
             <div className="marketing-top-bar">
-                <Link to="/" className="back-link">← Back to Dashboard</Link>
-                <button onClick={logout} className="logout-btn" title="Lock Marketing">
-                    🔒 Lock
-                </button>
+                <Link to="/" className="back-link">&larr; Back to Dashboard</Link>
+                <div className="top-bar-actions">
+                    <button
+                        onClick={() => setShowChangePinModal(true)}
+                        className="change-pin-btn"
+                        title="Change PIN"
+                    >
+                        Change PIN
+                    </button>
+                    <button onClick={logout} className="logout-btn" title="Lock Marketing">
+                        Lock
+                    </button>
+                </div>
             </div>
+
+            {showChangePinModal && (
+                <ChangePinModal onClose={() => setShowChangePinModal(false)} />
+            )}
 
             <header className="marketing-header">
                 <h1>📱 SMS Marketing</h1>
