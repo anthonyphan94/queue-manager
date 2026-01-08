@@ -6,7 +6,6 @@ persistently. Compatible with Google Cloud Run automatic authentication.
 """
 
 from typing import List, Optional
-from datetime import datetime
 import os
 
 # Skip Firestore entirely if SKIP_FIRESTORE env var is set
@@ -20,14 +19,70 @@ firestore = None
 if not SKIP_FIRESTORE:
     try:
         from google.cloud import firestore as _firestore
-        from google.cloud.firestore_v1 import AsyncClient
         firestore = _firestore
         FIRESTORE_AVAILABLE = True
     except ImportError:
         pass
 
-# Collection name for technicians
+# Collection names
 COLLECTION_NAME = "technicians"
+_COUNTERS_COLLECTION = "_counters"
+
+
+def _convert_timestamp(ts):
+    """Convert Firestore timestamp to ISO string or Unix timestamp.
+
+    Handles both Python datetime objects and Firestore Timestamp objects.
+    Returns None if input is None or not a recognized timestamp type.
+    """
+    if ts is None:
+        return None
+    if hasattr(ts, 'isoformat'):
+        return ts.isoformat()
+    if hasattr(ts, 'timestamp'):
+        return ts.timestamp()
+    return ts
+
+
+def _doc_to_technician(doc, data: dict) -> dict:
+    """Convert a Firestore document to a technician dict.
+
+    Args:
+        doc: Firestore document snapshot
+        data: Document data from doc.to_dict()
+
+    Returns:
+        Technician dict with standardized fields
+    """
+    return {
+        "id": int(doc.id),
+        "name": data.get("name", ""),
+        "status": data.get("status", "AVAILABLE"),
+        "queue_position": data.get("queue_position", 0),
+        "is_active": data.get("is_active", False),
+        "status_start_time": _convert_timestamp(data.get("status_start_time"))
+    }
+
+
+def _technician_to_doc_data(tech: dict, include_status_time: bool = False) -> dict:
+    """Convert a technician dict to Firestore document data.
+
+    Args:
+        tech: Technician dict
+        include_status_time: If True, include status_start_time field
+
+    Returns:
+        Dict suitable for Firestore document
+    """
+    doc_data = {
+        "name": tech["name"],
+        "status": tech.get("status", "AVAILABLE"),
+        "queue_position": tech.get("queue_position", 0),
+        "is_active": tech.get("is_active", False),
+    }
+    if include_status_time and tech.get("status_start_time"):
+        doc_data["status_start_time"] = tech["status_start_time"]
+    return doc_data
 
 
 def _get_db():
@@ -77,24 +132,7 @@ async def load_technicians() -> List[dict]:
         
         technicians = []
         async for doc in docs:
-            data = doc.to_dict()
-            
-            # Handle status_start_time - convert Firestore timestamp to ISO string
-            status_start_time = data.get("status_start_time")
-            if status_start_time and hasattr(status_start_time, 'isoformat'):
-                status_start_time = status_start_time.isoformat()
-            elif status_start_time and hasattr(status_start_time, 'timestamp'):
-                # Firestore Timestamp object
-                status_start_time = status_start_time.timestamp()
-            
-            technicians.append({
-                "id": int(doc.id),  # Document ID is the technician ID
-                "name": data.get("name", ""),
-                "status": data.get("status", "AVAILABLE"),
-                "queue_position": data.get("queue_position", 0),
-                "is_active": data.get("is_active", False),
-                "status_start_time": status_start_time
-            })
+            technicians.append(_doc_to_technician(doc, doc.to_dict()))
 
         print(f"[load_technicians] Successfully loaded {len(technicians)} technicians from Firestore")
         return technicians
@@ -115,17 +153,10 @@ async def save_technician(tech: dict, update_status_time: bool = False) -> int:
         return tech.get("id", 1)  # Return existing ID or 1 for new
     
     collection = db.collection(COLLECTION_NAME)
-    
     tech_id = tech.get("id")
-    
-    # Prepare document data (exclude 'id' as it's the document ID)
-    doc_data = {
-        "name": tech["name"],
-        "status": tech.get("status", "AVAILABLE"),
-        "queue_position": tech.get("queue_position", 0),
-        "is_active": tech.get("is_active", False),
-    }
-    
+
+    doc_data = _technician_to_doc_data(tech)
+
     # Use SERVER_TIMESTAMP if updating status time, otherwise preserve existing
     if update_status_time:
         doc_data["status_start_time"] = firestore.SERVER_TIMESTAMP
@@ -164,7 +195,7 @@ async def get_next_technician_id() -> int:
     # Query for the document with the highest ID (document IDs are strings of integers)
     # We need to get all docs and find max since Firestore doesn't support ordering by doc ID
     # Use a counter document for O(1) performance
-    counter_ref = db.collection("_counters").document("technicians")
+    counter_ref = db.collection(_COUNTERS_COLLECTION).document("technicians")
     counter_doc = await counter_ref.get()
 
     if counter_doc.exists:
@@ -214,22 +245,8 @@ async def get_technician(tech_id: int) -> Optional[dict]:
     
     if not doc.exists:
         return None
-    
-    data = doc.to_dict()
-    status_start_time = data.get("status_start_time")
-    if status_start_time and hasattr(status_start_time, 'isoformat'):
-        status_start_time = status_start_time.isoformat()
-    elif status_start_time and hasattr(status_start_time, 'timestamp'):
-        status_start_time = status_start_time.timestamp()
-    
-    return {
-        "id": int(doc.id),
-        "name": data.get("name", ""),
-        "status": data.get("status", "AVAILABLE"),
-        "queue_position": data.get("queue_position", 0),
-        "is_active": data.get("is_active", False),
-        "status_start_time": status_start_time
-    }
+
+    return _doc_to_technician(doc, doc.to_dict())
 
 
 async def get_next_available_technician() -> Optional[dict]:
@@ -252,22 +269,8 @@ async def get_next_available_technician() -> Optional[dict]:
     
     docs = query.stream()
     async for doc in docs:
-        data = doc.to_dict()
-        status_start_time = data.get("status_start_time")
-        if status_start_time and hasattr(status_start_time, 'isoformat'):
-            status_start_time = status_start_time.isoformat()
-        elif status_start_time and hasattr(status_start_time, 'timestamp'):
-            status_start_time = status_start_time.timestamp()
-        
-        return {
-            "id": int(doc.id),
-            "name": data.get("name", ""),
-            "status": data.get("status", "AVAILABLE"),
-            "queue_position": data.get("queue_position", 0),
-            "is_active": data.get("is_active", False),
-            "status_start_time": status_start_time
-        }
-    
+        return _doc_to_technician(doc, doc.to_dict())
+
     return None
 
 
@@ -387,7 +390,7 @@ async def delete_all_technicians() -> int:
         deleted_count += 1
     
     # Reset the ID counter
-    counter_ref = db.collection("_counters").document("technicians")
+    counter_ref = db.collection(_COUNTERS_COLLECTION).document("technicians")
     await counter_ref.set({"next_id": 1})
     
     print(f"[delete_all_technicians] Deleted {deleted_count} technicians, reset ID counter")
@@ -406,15 +409,7 @@ async def save_all_technicians(technicians: List[dict]):
     for tech in technicians:
         if tech.get("id"):
             doc_ref = collection.document(str(tech["id"]))
-            doc_data = {
-                "name": tech["name"],
-                "status": tech.get("status", "AVAILABLE"),
-                "queue_position": tech.get("queue_position", 0),
-                "is_active": tech.get("is_active", False),
-            }
-            # Preserve existing status_start_time (don't overwrite with batch)
-            if tech.get("status_start_time"):
-                doc_data["status_start_time"] = tech["status_start_time"]
+            doc_data = _technician_to_doc_data(tech, include_status_time=True)
             batch.set(doc_ref, doc_data, merge=True)
     
     await batch.commit()
@@ -433,71 +428,3 @@ async def update_technician_status(tech_id: int, status: str) -> None:
         "status": status,
         "status_start_time": firestore.SERVER_TIMESTAMP
     })
-
-
-# --- Settings Collection (Marketing PIN, etc.) ---
-
-SETTINGS_COLLECTION = "settings"
-
-
-async def get_marketing_pin_hash() -> Optional[str]:
-    """Get the hashed marketing PIN from Firestore.
-
-    Returns None if no PIN is set or Firestore is unavailable.
-    """
-    db = _get_db()
-    if not db:
-        return None
-
-    doc_ref = db.collection(SETTINGS_COLLECTION).document("marketing")
-    doc = await doc_ref.get()
-
-    if doc.exists:
-        return doc.to_dict().get("pin_hash")
-    return None
-
-
-async def set_marketing_pin_hash(pin_hash: str) -> bool:
-    """Set the hashed marketing PIN in Firestore.
-
-    Args:
-        pin_hash: The bcrypt-hashed PIN to store
-
-    Returns:
-        True if successful, False if Firestore unavailable
-    """
-    db = _get_db()
-    if not db:
-        return False
-
-    doc_ref = db.collection(SETTINGS_COLLECTION).document("marketing")
-    await doc_ref.set({
-        "pin_hash": pin_hash,
-        "updated_at": firestore.SERVER_TIMESTAMP
-    }, merge=True)
-    return True
-
-
-async def initialize_marketing_pin(default_pin: str) -> bool:
-    """Initialize the marketing PIN if not already set.
-
-    Args:
-        default_pin: The plaintext default PIN to hash and store
-
-    Returns:
-        True if initialized (or already exists), False if Firestore unavailable
-    """
-    import bcrypt
-
-    db = _get_db()
-    if not db:
-        return False
-
-    # Check if PIN already exists
-    existing = await get_marketing_pin_hash()
-    if existing:
-        return True  # Already initialized
-
-    # Hash and store the default PIN
-    pin_hash = bcrypt.hashpw(default_pin.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    return await set_marketing_pin_hash(pin_hash)

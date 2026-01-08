@@ -9,7 +9,7 @@ import os
 import bcrypt
 from fastapi import HTTPException, Header
 
-from app.database import get_marketing_pin_hash, set_marketing_pin_hash
+from app.settings_db import get_marketing_pin_hash, set_marketing_pin_hash
 
 # Fallback PIN for development when Firestore is unavailable
 DEFAULT_DEV_PIN = os.getenv("MARKETING_PIN", "0112")
