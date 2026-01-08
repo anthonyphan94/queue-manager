@@ -2,7 +2,7 @@
 Turn Rules Service - Core business logic for salon turn management.
 
 This module contains all business logic for managing technician turns.
-It does NOT depend on FastAPI, only on data models.
+It is fully STATELESS - all operations read/write directly to Firestore.
 """
 
 from typing import List, Optional
@@ -40,7 +40,7 @@ class NoAvailableTechniciansError(TurnRulesError):
 class TechnicianEntity:
     """
     Internal representation of a Technician.
-    Used by the TurnRulesService for business logic operations.
+    Used for API responses and compatibility with existing code.
     """
     id: int
     name: str
@@ -49,22 +49,34 @@ class TechnicianEntity:
     is_active: bool = False  # False = Offline, True = Online (checked-in)
     status_start_time: Optional[datetime] = None
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "TechnicianEntity":
+        """Create a TechnicianEntity from a dictionary."""
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            status=data.get("status", "AVAILABLE"),
+            queue_position=data.get("queue_position", 0),
+            is_active=data.get("is_active", False),
+            status_start_time=data.get("status_start_time")
+        )
+
 
 class TurnRulesService:
     """
-    Service class containing all business logic for turn management.
+    Stateless service class for turn management.
     
-    This class is framework-agnostic and does not depend on FastAPI.
-    All methods operate on a list of TechnicianEntity objects.
+    All methods query Firestore directly - no in-memory state.
+    Each operation is self-contained: read -> process -> write.
     """
 
-    def __init__(self, technicians: List[TechnicianEntity] = None):
-        """Initialize the service with an optional list of technicians."""
-        self.technicians = technicians if technicians is not None else []
+    def __init__(self):
+        """Initialize the stateless service (no state to store)."""
+        pass
 
-    # --- Query Methods ---
+    # --- Query Methods (Async - query Firestore directly) ---
 
-    def get_next_tech(self) -> Optional[TechnicianEntity]:
+    async def get_next_tech(self) -> Optional[TechnicianEntity]:
         """
         Get the next available technician based on queue position.
         
@@ -72,18 +84,14 @@ class TurnRulesService:
             The technician with the lowest queue_position who is AVAILABLE and active,
             or None if no technicians are available.
         """
-        available_techs = [
-            t for t in self.technicians 
-            if t.status == "AVAILABLE" and t.is_active
-        ]
-        if not available_techs:
-            return None
+        from app.database import get_next_available_technician
         
-        # Sort by queue_position ascending
-        available_techs.sort(key=lambda t: t.queue_position)
-        return available_techs[0]
+        tech_data = await get_next_available_technician()
+        if not tech_data:
+            return None
+        return TechnicianEntity.from_dict(tech_data)
 
-    def get_tech_by_id(self, tech_id: int) -> Optional[TechnicianEntity]:
+    async def get_tech_by_id(self, tech_id: int) -> Optional[TechnicianEntity]:
         """
         Find a technician by their ID.
         
@@ -93,9 +101,14 @@ class TurnRulesService:
         Returns:
             The technician if found, None otherwise.
         """
-        return next((t for t in self.technicians if t.id == tech_id), None)
+        from app.database import get_technician
+        
+        tech_data = await get_technician(tech_id)
+        if not tech_data:
+            return None
+        return TechnicianEntity.from_dict(tech_data)
 
-    def get_tech_by_id_or_raise(self, tech_id: int) -> TechnicianEntity:
+    async def get_tech_by_id_or_raise(self, tech_id: int) -> TechnicianEntity:
         """
         Find a technician by ID or raise an error if not found.
         
@@ -108,40 +121,14 @@ class TurnRulesService:
         Raises:
             TechnicianNotFoundError: If technician is not found.
         """
-        tech = self.get_tech_by_id(tech_id)
+        tech = await self.get_tech_by_id(tech_id)
         if not tech:
             raise TechnicianNotFoundError(tech_id)
         return tech
 
-    # --- Position Calculation Methods ---
+    # --- State Mutation Methods (Async - read/write Firestore directly) ---
 
-    def get_next_queue_position(self) -> int:
-        """
-        Calculate the next queue position (bottom of queue).
-
-        Used for both new technicians and when moving to bottom of queue.
-
-        Returns:
-            The next available queue position.
-        """
-        if not self.technicians:
-            return 1
-        return max(t.queue_position for t in self.technicians) + 1
-
-    def _repack_positions(self) -> None:
-        """
-        Re-pack queue_position to contiguous 1..N.
-        
-        Maintains relative order while eliminating gaps.
-        Called after mutations that could create gaps (remove, complete, return from break).
-        """
-        sorted_techs = sorted(self.technicians, key=lambda t: t.queue_position)
-        for i, tech in enumerate(sorted_techs):
-            tech.queue_position = i + 1
-
-    # --- State Mutation Methods ---
-
-    def add_technician(self, name: str) -> TechnicianEntity:
+    async def add_technician(self, name: str) -> TechnicianEntity:
         """
         Add a new technician to the roster.
         
@@ -151,22 +138,38 @@ class TurnRulesService:
         Returns:
             The newly created technician entity.
         """
-        new_id = max((t.id for t in self.technicians), default=0) + 1
-        # Use list length + 1 for contiguous positions (not max+1 which can diverge after reset)
-        new_position = len(self.technicians) + 1
+        from app.database import (
+            get_next_technician_id,
+            get_technician_count,
+            save_technician
+        )
         
-        new_tech = TechnicianEntity(
+        # Get next ID and position
+        new_id = await get_next_technician_id()
+        tech_count = await get_technician_count()
+        new_position = tech_count + 1
+        
+        new_tech_data = {
+            "id": new_id,
+            "name": name,
+            "status": "AVAILABLE",
+            "queue_position": new_position,
+            "is_active": False,
+        }
+        
+        # Save to Firestore (with SERVER_TIMESTAMP for status_start_time)
+        await save_technician(new_tech_data, update_status_time=True)
+        
+        return TechnicianEntity(
             id=new_id,
             name=name,
             status="AVAILABLE",
             queue_position=new_position,
             is_active=False,
-            status_start_time=None  # Will be set by Firestore SERVER_TIMESTAMP
+            status_start_time=None
         )
-        self.technicians.append(new_tech)
-        return new_tech
 
-    def remove_technician(self, tech_id: int) -> None:
+    async def remove_technician(self, tech_id: int) -> None:
         """
         Remove a technician from the roster.
         
@@ -176,11 +179,18 @@ class TurnRulesService:
         Raises:
             TechnicianNotFoundError: If technician is not found.
         """
-        tech = self.get_tech_by_id_or_raise(tech_id)
-        self.technicians.remove(tech)
-        self._repack_positions()  # Re-pack to fill gap
+        from app.database import delete_technician, repack_queue_positions
+        
+        # Verify technician exists
+        tech = await self.get_tech_by_id_or_raise(tech_id)
+        
+        # Delete from Firestore
+        await delete_technician(tech_id)
+        
+        # Repack queue positions to fill the gap
+        await repack_queue_positions()
 
-    def assign_tech(self, tech_id: int) -> TechnicianEntity:
+    async def assign_tech(self, tech_id: int) -> TechnicianEntity:
         """
         Assign a specific technician to a client.
         
@@ -194,16 +204,20 @@ class TurnRulesService:
             TechnicianNotFoundError: If technician is not found.
             TechnicianNotAvailableError: If technician is not available.
         """
-        tech = self.get_tech_by_id_or_raise(tech_id)
+        from app.database import update_technician_fields
+        
+        tech = await self.get_tech_by_id_or_raise(tech_id)
         
         if tech.status != "AVAILABLE":
             raise TechnicianNotAvailableError(tech_id, tech.status)
         
+        # Update status in Firestore
+        await update_technician_fields(tech_id, update_status_time=True, status="BUSY")
+        
         tech.status = "BUSY"
-        # status_start_time will be set by Firestore SERVER_TIMESTAMP
         return tech
 
-    def assign_next_available(self) -> TechnicianEntity:
+    async def assign_next_available(self) -> TechnicianEntity:
         """
         Assign the next available technician in the queue.
         
@@ -213,15 +227,19 @@ class TurnRulesService:
         Raises:
             NoAvailableTechniciansError: If no technicians are available.
         """
-        tech = self.get_next_tech()
+        from app.database import update_technician_fields
+        
+        tech = await self.get_next_tech()
         if not tech:
             raise NoAvailableTechniciansError()
         
+        # Update status in Firestore
+        await update_technician_fields(tech.id, update_status_time=True, status="BUSY")
+        
         tech.status = "BUSY"
-        # status_start_time will be set by Firestore SERVER_TIMESTAMP
         return tech
 
-    def handle_tech_completion(self, tech_id: int, is_request: bool = False) -> TechnicianEntity:
+    async def handle_tech_completion(self, tech_id: int, is_request: bool = False) -> TechnicianEntity:
         """
         Handle completion of a technician's turn.
         
@@ -238,19 +256,35 @@ class TurnRulesService:
         Raises:
             TechnicianNotFoundError: If technician is not found.
         """
-        tech = self.get_tech_by_id_or_raise(tech_id)
+        from app.database import (
+            get_max_queue_position,
+            update_technician_fields,
+            repack_queue_positions
+        )
         
-        # Mark as available
-        tech.status = "AVAILABLE"
-        # status_start_time will be set by Firestore SERVER_TIMESTAMP
+        # Verify technician exists
+        await self.get_tech_by_id_or_raise(tech_id)
         
-        # Move to bottom of queue
-        tech.queue_position = self.get_next_queue_position()
-        self._repack_positions()  # Re-pack to maintain contiguous positions
+        # Get new position (bottom of queue)
+        max_pos = await get_max_queue_position()
+        new_position = max_pos + 1
         
+        # Update in Firestore
+        await update_technician_fields(
+            tech_id,
+            update_status_time=True,
+            status="AVAILABLE",
+            queue_position=new_position
+        )
+        
+        # Repack to maintain contiguous positions
+        await repack_queue_positions()
+        
+        # Return updated tech
+        tech = await self.get_tech_by_id_or_raise(tech_id)
         return tech
 
-    def toggle_active_status(self, tech_id: int) -> TechnicianEntity:
+    async def toggle_active_status(self, tech_id: int) -> TechnicianEntity:
         """
         Toggle a technician's active (checked-in) status.
         
@@ -263,23 +297,43 @@ class TurnRulesService:
         Raises:
             TechnicianNotFoundError: If technician is not found.
         """
-        tech = self.get_tech_by_id_or_raise(tech_id)
-        tech.is_active = not tech.is_active
+        from app.database import update_technician_fields
+        
+        tech = await self.get_tech_by_id_or_raise(tech_id)
+        new_active = not tech.is_active
+        
+        # Update in Firestore (update status time when checking in)
+        await update_technician_fields(
+            tech_id,
+            update_status_time=new_active,
+            is_active=new_active
+        )
+        
+        tech.is_active = new_active
         return tech
 
-    def reorder_queue(self, tech_ids: List[int]) -> None:
+    async def reorder_queue(self, tech_ids: List[int]) -> None:
         """
         Reorder the queue based on a new ordering of technician IDs.
         
         Args:
             tech_ids: List of technician IDs in the desired order.
         """
+        from app.database import save_all_technicians, load_technicians
+        
+        # Load all technicians to get their full data
+        all_techs = await load_technicians()
+        tech_map = {t["id"]: t for t in all_techs}
+        
+        # Update queue positions based on new order
         for index, tech_id in enumerate(tech_ids):
-            tech = self.get_tech_by_id(tech_id)
-            if tech:
-                tech.queue_position = index + 1
+            if tech_id in tech_map:
+                tech_map[tech_id]["queue_position"] = index + 1
+        
+        # Save all back to Firestore
+        await save_all_technicians(list(tech_map.values()))
 
-    def take_break(self, tech_id: int) -> TechnicianEntity:
+    async def take_break(self, tech_id: int) -> TechnicianEntity:
         """
         Put a technician on break.
         
@@ -292,12 +346,17 @@ class TurnRulesService:
         Raises:
             TechnicianNotFoundError: If technician is not found.
         """
-        tech = self.get_tech_by_id_or_raise(tech_id)
-        tech.status = "ON_BREAK"
-        # status_start_time will be set by Firestore SERVER_TIMESTAMP
+        from app.database import update_technician_fields
+        
+        await self.get_tech_by_id_or_raise(tech_id)
+        
+        # Update status in Firestore
+        await update_technician_fields(tech_id, update_status_time=True, status="ON_BREAK")
+        
+        tech = await self.get_tech_by_id_or_raise(tech_id)
         return tech
 
-    def return_from_break(self, tech_id: int) -> TechnicianEntity:
+    async def return_from_break(self, tech_id: int) -> TechnicianEntity:
         """
         Return a technician from break to the bottom of the queue.
         
@@ -310,31 +369,56 @@ class TurnRulesService:
         Raises:
             TechnicianNotFoundError: If technician is not found.
         """
-        tech = self.get_tech_by_id_or_raise(tech_id)
-        tech.status = "AVAILABLE"
-        # status_start_time will be set by Firestore SERVER_TIMESTAMP
-        tech.queue_position = self.get_next_queue_position()
-        self._repack_positions()  # Re-pack to maintain contiguous positions
+        from app.database import (
+            get_max_queue_position,
+            update_technician_fields,
+            repack_queue_positions
+        )
+        
+        await self.get_tech_by_id_or_raise(tech_id)
+        
+        # Get new position (bottom of queue)
+        max_pos = await get_max_queue_position()
+        new_position = max_pos + 1
+        
+        # Update in Firestore
+        await update_technician_fields(
+            tech_id,
+            update_status_time=True,
+            status="AVAILABLE",
+            queue_position=new_position
+        )
+        
+        # Repack to maintain contiguous positions
+        await repack_queue_positions()
+        
+        tech = await self.get_tech_by_id_or_raise(tech_id)
         return tech
 
-    # --- Serialization Methods ---
+    # --- Serialization Methods (Async - query Firestore directly) ---
 
-    def get_all_techs_sorted(self) -> List[dict]:
+    async def get_all_techs_sorted(self) -> List[dict]:
         """
         Get all technicians sorted by queue position.
         
         Returns:
             List of technician dictionaries ready for API response.
         """
-        sorted_techs = sorted(self.technicians, key=lambda t: t.queue_position)
+        from app.database import load_technicians
+        
+        technicians = await load_technicians()
+        
+        # Sort by queue_position (already sorted from Firestore, but ensure)
+        sorted_techs = sorted(technicians, key=lambda t: t["queue_position"])
+        
         return [
             {
-                "id": t.id,
-                "name": t.name,
-                "status": t.status,
-                "queue_position": t.queue_position,
-                "is_active": t.is_active,
-                "status_start_time": t.status_start_time.isoformat() if t.status_start_time else None
+                "id": t["id"],
+                "name": t["name"],
+                "status": t["status"],
+                "queue_position": t["queue_position"],
+                "is_active": t["is_active"],
+                "status_start_time": t.get("status_start_time")
             }
             for t in sorted_techs
         ]

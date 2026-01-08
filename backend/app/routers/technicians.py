@@ -1,5 +1,7 @@
 """
 Technician API Router - CRUD and action endpoints for technicians.
+
+STATELESS: All operations use async TurnRulesService which queries Firestore directly.
 """
 
 from fastapi import APIRouter, HTTPException
@@ -28,33 +30,16 @@ router = APIRouter(prefix="/techs", tags=["technicians"])
 
 
 def get_dependencies():
-    """Get shared dependencies (turn_service, database functions, broadcast).
+    """Get shared dependencies (turn_service, broadcast).
 
     This is imported at runtime to avoid circular imports.
     """
-    from main import turn_service, HAS_DATABASE, broadcast_update, reload_technicians_from_db
-    try:
-        from app.database import (
-            save_technician as db_save_tech,
-            delete_technician as db_delete_tech,
-            save_all_technicians,
-            update_technician_status,
-        )
-    except ImportError:
-        db_save_tech = None
-        db_delete_tech = None
-        save_all_technicians = None
-        update_technician_status = None
+    from main import turn_service, HAS_DATABASE, broadcast_update
 
     return {
         "turn_service": turn_service,
         "HAS_DATABASE": HAS_DATABASE,
         "broadcast_update": broadcast_update,
-        "reload_from_db": reload_technicians_from_db,
-        "db_save_tech": db_save_tech,
-        "db_delete_tech": db_delete_tech,
-        "save_all_technicians": save_all_technicians,
-        "update_technician_status": update_technician_status,
     }
 
 
@@ -62,28 +47,15 @@ def get_dependencies():
 async def list_techs():
     """Get all technicians sorted by queue position."""
     deps = get_dependencies()
-    return deps["turn_service"].get_all_techs_sorted()
+    return await deps["turn_service"].get_all_techs_sorted()
 
 
 @router.post("", response_model=TechnicianResponse)
 async def add_tech(tech: TechnicianCreate):
     """Add a new technician to the roster."""
     deps = get_dependencies()
-    
-    # Reload from Firestore to ensure multi-instance consistency
-    await deps["reload_from_db"]()
-    turn_service = deps["turn_service"]
 
-    new_tech = turn_service.add_technician(tech.name)
-
-    if deps["HAS_DATABASE"] and deps["db_save_tech"]:
-        await deps["db_save_tech"]({
-            "id": new_tech.id,
-            "name": new_tech.name,
-            "status": new_tech.status,
-            "queue_position": new_tech.queue_position,
-            "is_active": new_tech.is_active,
-        }, update_status_time=True)
+    new_tech = await deps["turn_service"].add_technician(tech.name)
 
     await deps["broadcast_update"]()
 
@@ -100,19 +72,9 @@ async def add_tech(tech: TechnicianCreate):
 async def remove_tech(tech_id: int):
     """Remove a technician from the roster permanently."""
     deps = get_dependencies()
-    
-    # Reload from Firestore to ensure multi-instance consistency
-    await deps["reload_from_db"]()
 
     try:
-        deps["turn_service"].remove_technician(tech_id)
-
-        if deps["HAS_DATABASE"] and deps["db_delete_tech"]:
-            await deps["db_delete_tech"](tech_id)
-            # Save all remaining technicians to persist the repacked queue positions
-            if deps["save_all_technicians"]:
-                await deps["save_all_technicians"](deps["turn_service"].get_all_techs_sorted())
-
+        await deps["turn_service"].remove_technician(tech_id)
         await deps["broadcast_update"]()
         return RemoveResponse(tech_id=tech_id)
     except TechnicianNotFoundError as e:
@@ -125,17 +87,7 @@ async def toggle_tech_active(req: ToggleActiveRequest):
     deps = get_dependencies()
 
     try:
-        tech = deps["turn_service"].toggle_active_status(req.tech_id)
-
-        if deps["HAS_DATABASE"] and deps["db_save_tech"]:
-            await deps["db_save_tech"]({
-                "id": tech.id,
-                "name": tech.name,
-                "status": tech.status,
-                "queue_position": tech.queue_position,
-                "is_active": tech.is_active,
-            }, update_status_time=tech.is_active)
-
+        tech = await deps["turn_service"].toggle_active_status(req.tech_id)
         await deps["broadcast_update"]()
         return ToggleActiveResponse(tech_id=tech.id, is_active=tech.is_active)
     except TechnicianNotFoundError as e:
@@ -147,11 +99,7 @@ async def reorder_techs(req: ReorderRequest):
     """Reorder the technician queue based on a new ordering."""
     deps = get_dependencies()
 
-    deps["turn_service"].reorder_queue(req.tech_ids)
-
-    if deps["HAS_DATABASE"] and deps["save_all_technicians"]:
-        await deps["save_all_technicians"](deps["turn_service"].get_all_techs_sorted())
-
+    await deps["turn_service"].reorder_queue(req.tech_ids)
     await deps["broadcast_update"]()
     return ReorderResponse()
 
@@ -169,12 +117,9 @@ async def assign_tech(req: AssignRequest):
 
     try:
         if req.request_tech_id:
-            tech = turn_service.assign_tech(req.request_tech_id)
+            tech = await turn_service.assign_tech(req.request_tech_id)
         else:
-            tech = turn_service.assign_next_available()
-
-        if deps["HAS_DATABASE"] and deps["update_technician_status"]:
-            await deps["update_technician_status"](tech.id, tech.status)
+            tech = await turn_service.assign_next_available()
 
         await deps["broadcast_update"]()
 
@@ -197,16 +142,7 @@ async def complete_turn(req: CompleteRequest):
     deps = get_dependencies()
 
     try:
-        tech = deps["turn_service"].handle_tech_completion(req.tech_id, req.is_request)
-
-        if deps["HAS_DATABASE"] and deps["db_save_tech"]:
-            await deps["db_save_tech"]({
-                "id": tech.id,
-                "name": tech.name,
-                "status": tech.status,
-                "queue_position": tech.queue_position,
-                "is_active": tech.is_active,
-            }, update_status_time=True)
+        tech = await deps["turn_service"].handle_tech_completion(req.tech_id, req.is_request)
 
         await deps["broadcast_update"]()
 

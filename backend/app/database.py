@@ -200,6 +200,174 @@ async def delete_technician(tech_id: int):
     await doc_ref.delete()
 
 
+async def get_technician(tech_id: int) -> Optional[dict]:
+    """Get a single technician by ID from Firestore.
+    
+    Returns None if not found or Firestore unavailable.
+    """
+    db = _get_db()
+    if not db:
+        return None
+    
+    doc_ref = db.collection(COLLECTION_NAME).document(str(tech_id))
+    doc = await doc_ref.get()
+    
+    if not doc.exists:
+        return None
+    
+    data = doc.to_dict()
+    status_start_time = data.get("status_start_time")
+    if status_start_time and hasattr(status_start_time, 'isoformat'):
+        status_start_time = status_start_time.isoformat()
+    elif status_start_time and hasattr(status_start_time, 'timestamp'):
+        status_start_time = status_start_time.timestamp()
+    
+    return {
+        "id": int(doc.id),
+        "name": data.get("name", ""),
+        "status": data.get("status", "AVAILABLE"),
+        "queue_position": data.get("queue_position", 0),
+        "is_active": data.get("is_active", False),
+        "status_start_time": status_start_time
+    }
+
+
+async def get_next_available_technician() -> Optional[dict]:
+    """Get the next available technician (AVAILABLE + is_active) with lowest queue_position.
+    
+    Returns None if no technicians are available.
+    """
+    db = _get_db()
+    if not db:
+        return None
+    
+    collection = db.collection(COLLECTION_NAME)
+    
+    # Query for AVAILABLE and active technicians, ordered by queue_position
+    query = (collection
+             .where("status", "==", "AVAILABLE")
+             .where("is_active", "==", True)
+             .order_by("queue_position")
+             .limit(1))
+    
+    docs = query.stream()
+    async for doc in docs:
+        data = doc.to_dict()
+        status_start_time = data.get("status_start_time")
+        if status_start_time and hasattr(status_start_time, 'isoformat'):
+            status_start_time = status_start_time.isoformat()
+        elif status_start_time and hasattr(status_start_time, 'timestamp'):
+            status_start_time = status_start_time.timestamp()
+        
+        return {
+            "id": int(doc.id),
+            "name": data.get("name", ""),
+            "status": data.get("status", "AVAILABLE"),
+            "queue_position": data.get("queue_position", 0),
+            "is_active": data.get("is_active", False),
+            "status_start_time": status_start_time
+        }
+    
+    return None
+
+
+async def get_max_queue_position() -> int:
+    """Get the maximum queue_position value across all technicians.
+    
+    Returns 0 if no technicians exist.
+    """
+    db = _get_db()
+    if not db:
+        return 0
+    
+    collection = db.collection(COLLECTION_NAME)
+    query = collection.order_by("queue_position", direction=firestore.Query.DESCENDING).limit(1)
+    
+    docs = query.stream()
+    async for doc in docs:
+        data = doc.to_dict()
+        return data.get("queue_position", 0)
+    
+    return 0
+
+
+async def get_technician_count() -> int:
+    """Get the count of all technicians.
+    
+    Returns 0 if no technicians exist or Firestore unavailable.
+    """
+    db = _get_db()
+    if not db:
+        return 0
+    
+    collection = db.collection(COLLECTION_NAME)
+    docs = collection.stream()
+    count = 0
+    async for _ in docs:
+        count += 1
+    return count
+
+
+async def update_technician_fields(tech_id: int, update_status_time: bool = False, **fields) -> bool:
+    """Update specific fields on a technician document.
+    
+    Args:
+        tech_id: The technician's ID
+        update_status_time: If True, also set status_start_time to SERVER_TIMESTAMP
+        **fields: Field names and values to update
+        
+    Returns:
+        True if update succeeded, False if Firestore unavailable
+    """
+    db = _get_db()
+    if not db:
+        return False
+    
+    doc_ref = db.collection(COLLECTION_NAME).document(str(tech_id))
+    
+    update_data = dict(fields)
+    if update_status_time:
+        update_data["status_start_time"] = firestore.SERVER_TIMESTAMP
+    
+    await doc_ref.update(update_data)
+    return True
+
+
+async def repack_queue_positions() -> bool:
+    """Re-pack all queue positions to contiguous 1..N values.
+    
+    Uses a transaction to ensure atomicity.
+    
+    Returns:
+        True if successful, False if Firestore unavailable
+    """
+    db = _get_db()
+    if not db:
+        return False
+    
+    collection = db.collection(COLLECTION_NAME)
+    
+    # Get all technicians ordered by current queue_position
+    query = collection.order_by("queue_position")
+    docs = query.stream()
+    
+    # Collect all docs and their new positions
+    updates = []
+    position = 1
+    async for doc in docs:
+        updates.append((doc.reference, position))
+        position += 1
+    
+    # Batch update all positions
+    if updates:
+        batch = db.batch()
+        for doc_ref, new_pos in updates:
+            batch.update(doc_ref, {"queue_position": new_pos})
+        await batch.commit()
+    
+    return True
+
+
 async def delete_all_technicians() -> int:
     """Delete ALL technicians from Firestore and reset the ID counter.
     

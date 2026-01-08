@@ -3,12 +3,13 @@ Salon Turn Manager API - Main Entry Point
 
 This module sets up the FastAPI application and includes routers.
 Business logic is contained in the services layer.
+
+STATELESS ARCHITECTURE: No in-memory cache - Firestore is the single source of truth.
 """
 
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import List
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -18,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.routers import technicians_router, breaks_router, marketing_router
 from app.routers.technicians import assign_router
-from app.services.turn_rules import TurnRulesService, TechnicianEntity
+from app.services.turn_rules import TurnRulesService
 
 # Load environment variables from .env file
 load_dotenv()
@@ -38,10 +39,6 @@ try:
     from app.database import (
         init_db,
         load_technicians,
-        save_all_technicians,
-        save_technician as db_save_tech,
-        delete_technician as db_delete_tech,
-        update_technician_status,
         delete_all_technicians,
         FIRESTORE_AVAILABLE
     )
@@ -49,15 +46,12 @@ try:
 except Exception as e:
     logger.warning(f"Database not available: {e}. Running without persistence.")
     HAS_DATABASE = False
-
-    async def update_technician_status(tech_id: int, status: str) -> None:
-        pass
+    FIRESTORE_AVAILABLE = False
 
 
-# --- Service Initialization ---
+# --- Service Initialization (Stateless) ---
 
-technicians: List[TechnicianEntity] = []
-turn_service = TurnRulesService(technicians)
+turn_service = TurnRulesService()  # Stateless - no in-memory cache
 
 
 # --- Broadcast Helper ---
@@ -67,75 +61,28 @@ async def broadcast_update() -> None:
     pass
 
 
-# --- Reload Helper (for multi-instance consistency) ---
-
-async def reload_technicians_from_db() -> None:
-    """Reload technicians from Firestore to ensure fresh state before mutations.
-    
-    This prevents multi-instance state divergence where one Cloud Run instance
-    may have stale in-memory state after another instance modified Firestore.
-    
-    Should be called before any mutation operation (add, remove, etc.).
-    """
-    global technicians, turn_service
-    
-    if not HAS_DATABASE:
-        return
-    
-    try:
-        loaded = await load_technicians()
-        technicians.clear()
-        for t in loaded:
-            technicians.append(TechnicianEntity(
-                id=t["id"],
-                name=t["name"],
-                status=t["status"],
-                queue_position=t["queue_position"],
-                is_active=t["is_active"],
-                status_start_time=None
-            ))
-        # Recreate turn_service with fresh data
-        turn_service = TurnRulesService(technicians)
-        logger.debug(f"Reloaded {len(technicians)} technicians from Firestore")
-    except Exception as e:
-        logger.error(f"Failed to reload technicians: {e}", exc_info=True)
-
-
 # --- Lifespan (startup/shutdown) ---
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize database and load data on startup."""
-    global technicians, turn_service
-
+    """Initialize database connection on startup.
+    
+    STATELESS: No cache loading - just verify Firestore connection.
+    """
     if HAS_DATABASE:
         try:
             await init_db()
-            loaded = await load_technicians()
-            logger.info(f"load_technicians returned {len(loaded)} technicians")
-            for t in loaded:
-                technicians.append(TechnicianEntity(
-                    id=t["id"],
-                    name=t["name"],
-                    status=t["status"],
-                    queue_position=t["queue_position"],
-                    is_active=t["is_active"],
-                    status_start_time=None
-                ))
-            logger.info(f"Loaded {len(technicians)} technicians from database")
+            # Quick verification that Firestore is accessible
+            techs = await load_technicians()
+            logger.info(f"Firestore connected - {len(techs)} technicians in database")
         except Exception as e:
-            logger.error(f"Failed to load technicians from database: {e}", exc_info=True)
+            logger.error(f"Failed to connect to Firestore: {e}", exc_info=True)
     else:
         logger.warning("HAS_DATABASE is False - running without persistence")
 
     yield
 
-    if HAS_DATABASE and technicians:
-        try:
-            await save_all_technicians(turn_service.get_all_techs_sorted())
-            logger.info("Saved technicians to database on shutdown")
-        except Exception as e:
-            logger.error(f"Failed to save technicians on shutdown: {e}", exc_info=True)
+    # STATELESS: No need to save on shutdown - all writes are immediate
 
 
 # --- App Setup ---
@@ -143,7 +90,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Salon Turn Manager API",
     description="API for managing salon technician turn queue",
-    version="2.0.0",
+    version="2.1.0",  # Version bump for stateless refactor
     lifespan=lifespan
 )
 
@@ -173,11 +120,20 @@ app.include_router(marketing_router)
 @app.get("/health")
 async def health_check():
     """Health check endpoint for Cloud Run with debug info."""
+    tech_count = 0
+    if HAS_DATABASE:
+        try:
+            techs = await load_technicians()
+            tech_count = len(techs)
+        except Exception:
+            pass
+    
     return {
         "status": "healthy",
-        "version": "2.0.0",
+        "version": "2.1.0",
+        "architecture": "stateless",
         "debug": {
-            "technician_count": len(technicians),
+            "technician_count": tech_count,
             "has_database": HAS_DATABASE,
             "firestore_available": FIRESTORE_AVAILABLE
         }
@@ -186,21 +142,15 @@ async def health_check():
 
 @app.post("/admin/reset-technicians")
 async def reset_all_technicians():
-    """ADMIN: Delete all technicians from Firestore and reset in-memory state.
+    """ADMIN: Delete all technicians from Firestore.
     
     WARNING: This will delete ALL technicians permanently!
     """
-    global technicians, turn_service
-    
     deleted_count = 0
     if HAS_DATABASE:
         deleted_count = await delete_all_technicians()
     
-    # Clear in-memory state
-    technicians.clear()
-    turn_service = TurnRulesService(technicians)
-    
-    logger.info(f"Reset technicians: deleted {deleted_count} from Firestore, cleared in-memory state")
+    logger.info(f"Reset technicians: deleted {deleted_count} from Firestore")
     
     return {
         "success": True,
