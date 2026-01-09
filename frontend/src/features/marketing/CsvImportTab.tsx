@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useMarketingStore, type Row } from '../../store/marketingStore';
 import { useAuthStore } from '../../store/authStore';
 import { API_BASE } from '../../utils/api';
-import { CsvDropzone, SendResultsPanel, ConfirmModal, UndoToast } from './components';
+import { CsvDropzone, SendResultsPanel, ConfirmModal, UndoToast, SmsCostEstimate } from './components';
 
 /**
  * CsvImportTab - Mail-style CSV import with bulk selection and removal
@@ -339,6 +339,7 @@ export function CsvImportTab() {
                         />
                         <span className="hint">Use [name] to personalize each message.</span>
                         <span className="char-count">{messageDraft.length}/1600</span>
+                        <SmsCostEstimate message={messageDraft} recipientCount={counts.included} />
                     </div>
 
                     {/* BROADCAST BUTTON */}

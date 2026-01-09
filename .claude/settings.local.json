@@ -3,7 +3,10 @@
     "allow": [
       "Bash(cat:*)",
       "Bash(find:*)",
-      "Bash(python3 -m py_compile:*)"
+      "Bash(python3 -m py_compile:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)"
     ]
   }
 }

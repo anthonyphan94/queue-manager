@@ -6,3 +6,4 @@ export { CsvDropzone } from './CsvDropzone';
 export { SendResultsPanel } from './SendResultsPanel';
 export { ConfirmModal } from './ConfirmModal';
 export { UndoToast } from './UndoToast';
+export { SmsCostEstimate } from './SmsCostEstimate';

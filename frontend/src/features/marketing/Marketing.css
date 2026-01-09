@@ -915,3 +915,63 @@
 .new-broadcast-button:hover {
     background: #ffe4e6;
 }
+
+/* ================================================
+   SMS COST ESTIMATE
+   ================================================ */
+
+.sms-cost-estimate {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
+    border: 1px solid #fde047;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    color: #713f12;
+}
+
+.sms-cost-estimate .cost-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.sms-cost-estimate .cost-details {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sms-cost-estimate .segment-info {
+    color: #854d0e;
+}
+
+.sms-cost-estimate .encoding-badge {
+    display: inline-block;
+    margin-left: 0.375rem;
+    padding: 0.125rem 0.375rem;
+    background: #fbbf24;
+    color: #78350f;
+    font-size: 0.65rem;
+    font-weight: 600;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.sms-cost-estimate .cost-divider {
+    color: #d97706;
+    opacity: 0.5;
+}
+
+.sms-cost-estimate .cost-amount {
+    color: #78350f;
+}
+
+.sms-cost-estimate .cost-amount strong {
+    color: #b45309;
+    font-weight: 700;
+}

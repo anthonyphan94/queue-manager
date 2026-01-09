@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMarketingStore } from '../../store/marketingStore';
 import { useAuthStore } from '../../store/authStore';
 import { API_BASE } from '../../utils/api';
+import { SmsCostEstimate } from './components';
 
 /**
  * ManualTab - Single SMS send form
@@ -88,6 +89,7 @@ export function ManualTab() {
                 />
                 <span className="hint">Use [name] to personalize the message.</span>
                 <span className="char-count">{message.length}/1600</span>
+                <SmsCostEstimate message={message} />
             </div>
 
             {error && <div className="error-message">{error}</div>}
