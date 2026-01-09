@@ -975,3 +975,16 @@
     color: #b45309;
     font-weight: 700;
 }
+
+.sms-cost-estimate .cost-note {
+    margin-left: auto;
+    color: #a16207;
+    font-size: 0.9rem;
+    cursor: help;
+    opacity: 0.7;
+    transition: opacity 0.15s ease;
+}
+
+.sms-cost-estimate .cost-note:hover {
+    opacity: 1;
+}

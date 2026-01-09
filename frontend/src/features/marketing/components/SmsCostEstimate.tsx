@@ -154,6 +154,9 @@ export function SmsCostEstimate({ message, recipientCount = 1 }: SmsCostEstimate
                     </>
                 )}
             </div>
+            <span className="cost-note" title="Monthly fees for phone number rental and campaign registration are not included">
+                ⓘ
+            </span>
         </div>
     );
 }
