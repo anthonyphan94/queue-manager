@@ -157,13 +157,13 @@ def parse_csv_file(file_content: bytes) -> PreviewResponse:
         name = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else ""
         phone_raw = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ""
         
-        # Skip empty rows
+        # Skip rows where both name and phone are empty
         if not name and not phone_raw:
             continue
         
+        # Use "Customer" as default if no name provided
         if not name:
-            errors.append(f"Row {row_num}: Missing name")
-            continue
+            name = "Customer"
         
         if not phone_raw:
             errors.append(f"Row {row_num}: Missing phone number for '{name}'")
