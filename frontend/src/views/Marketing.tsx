@@ -76,23 +76,37 @@ export default function Marketing() {
 
     // === FETCH FROM GOOGLE SHEETS HANDLER ===
     const fetchFromSheets = async () => {
+        console.log('[fetchFromSheets] Step 1: Button clicked, setting loading state');
         setIsFetchingSheets(true);
         setError(null);
         clearResults();
 
         try {
+            console.log('[fetchFromSheets] Step 2: Getting auth header from store');
             const authHeader = useAuthStore.getState().getAuthHeader();
+            console.log('[fetchFromSheets] Step 3: Auth header present:', Object.keys(authHeader).length > 0);
+
+            console.log('[fetchFromSheets] Step 4: Calling POST /marketing/prepare');
             const response = await fetch(`${API_BASE}/marketing/prepare`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeader },
             });
+            console.log('[fetchFromSheets] Step 5: Response received, status:', response.status);
 
             if (!response.ok) {
                 const errorData = await response.json();
+                console.error('[fetchFromSheets] Step 5a: Error response:', errorData);
                 throw new Error(errorData.detail || 'Failed to fetch from Google Sheets');
             }
 
             const data = await response.json();
+            console.log('[fetchFromSheets] Step 6: Data parsed —', {
+                contacts: data.contacts?.length ?? 0,
+                errors: data.errors?.length ?? 0,
+                total_count: data.total_count,
+                valid_count: data.valid_count,
+                invalid_count: data.invalid_count,
+            });
 
             const importedRows: Row[] = [];
 
@@ -121,11 +135,16 @@ export default function Marketing() {
             });
 
             importedRows.sort((a, b) => a.rowIndex - b.rowIndex);
+            console.log('[fetchFromSheets] Step 7: Rows built — ready:', importedRows.filter(r => r.status === 'ready').length, ', excluded:', importedRows.filter(r => r.status === 'excluded').length);
+
             setImportData(importedRows);
+            console.log('[fetchFromSheets] Step 8: Store updated, UI should render recipients');
         } catch (err) {
+            console.error('[fetchFromSheets] ERROR:', err);
             setError(err instanceof Error ? err.message : 'Failed to fetch from Google Sheets');
         } finally {
             setIsFetchingSheets(false);
+            console.log('[fetchFromSheets] Done: loading state cleared');
         }
     };
 

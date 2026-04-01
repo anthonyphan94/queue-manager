@@ -272,23 +272,30 @@ async def prepare_recipients(_: bool = Depends(verify_pin)):
     """
     try:
         # Step 1: Fetch from Google Sheets
+        logger.info("[prepare] Step 1: Fetching contacts from Google Sheets...")
         raw_contacts = fetch_phone_numbers()
+        logger.info(f"[prepare] Step 1 done: {len(raw_contacts)} raw contacts fetched")
     except Exception as e:
-        logger.error(f"Failed to fetch from Google Sheets: {e}")
+        logger.error(f"[prepare] Step 1 FAILED: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to fetch from Google Sheets: {str(e)}")
 
     # Step 2: Fetch bad numbers from Twilio history
     try:
+        logger.info("[prepare] Step 2: Scanning Twilio history for bad numbers...")
         bad_numbers = fetch_bad_numbers()
-        logger.info(f"Loaded {len(bad_numbers)} bad numbers for filtering")
+        logger.info(f"[prepare] Step 2 done: {len(bad_numbers)} bad numbers found")
     except Exception as e:
-        logger.warning(f"Could not fetch bad numbers, skipping filter: {e}")
+        logger.warning(f"[prepare] Step 2 FAILED (continuing without filter): {e}")
         bad_numbers = set()
 
     # Step 3: Clean and filter
+    logger.info("[prepare] Step 3: Cleaning and filtering contacts...")
     contacts = []
     errors = []
     seen_phones = set()
+    dup_count = 0
+    bad_count = 0
+    invalid_count = 0
 
     for i, contact in enumerate(raw_contacts):
         name = contact["name"]
@@ -300,6 +307,7 @@ async def prepare_recipients(_: bool = Depends(verify_pin)):
             cleaned_phone = clean_phone_number(phone_raw)
         except ValueError as e:
             errors.append(f"Row {row_num}: {str(e)} (name: {name})")
+            invalid_count += 1
             continue
 
         phone_stripped = cleaned_phone.lstrip("+")
@@ -307,15 +315,19 @@ async def prepare_recipients(_: bool = Depends(verify_pin)):
         # Skip duplicates
         if phone_stripped in seen_phones:
             errors.append(f"Row {row_num}: Duplicate phone number (name: {name})")
+            dup_count += 1
             continue
         seen_phones.add(phone_stripped)
 
         # Skip opt-outs and permanent failures
         if phone_stripped in bad_numbers:
             errors.append(f"Row {row_num}: Opted out or previously failed (name: {name})")
+            bad_count += 1
             continue
 
         contacts.append(Contact(name=name, phone=cleaned_phone))
+
+    logger.info(f"[prepare] Step 3 done: {len(contacts)} valid, {invalid_count} invalid, {dup_count} duplicates, {bad_count} opt-outs/failures")
 
     return PreviewResponse(
         contacts=contacts,
