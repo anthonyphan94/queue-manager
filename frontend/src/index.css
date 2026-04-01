@@ -2,7 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap');
 
 /* ============================================
-   iOS HIG Design Tokens
+   Design Tokens
    ============================================ */
 :root {
     /* Tap targets - iOS minimum 44pt */
@@ -24,12 +24,6 @@
     --text-xs: 11px;
     --line-height: 1.25;
 
-    /* On Break constraints */
-    --on-break-max-height: min(25vh, 140px);
-
-    /* Queue item height */
-    --queue-item-height: 70px;
-
     /* === Semantic Color System === */
 
     /* Surfaces */
@@ -42,16 +36,13 @@
     --color-text-secondary: rgba(17, 24, 39, 0.65);
     --color-text-inverse: #FFFFFF;
 
-    /* Brand / Primary (pink - only for Done button fill) */
+    /* Brand / Primary (rose) */
     --color-primary: #e11d48;
     --color-primary-pressed: #be123c;
     --color-primary-soft: #ffe4e6;
-    /* rose-100 (darker than rose-50) */
-    /* rose-50 */
     --color-primary-border: #fecdd3;
-    /* rose-200 */
 
-    /* Destructive (red - for Remove) */
+    /* Destructive (red) */
     --color-destructive: #DC2626;
     --color-destructive-pressed: #B91C1C;
     --color-destructive-soft: rgba(220, 38, 38, 0.08);
@@ -65,21 +56,10 @@
     --shadow-sheet: 0 6px 18px rgba(17, 24, 39, 0.04);
 }
 
-/* Mobile-specific overrides (iPhone) */
-@media (max-width: 430px) {
-    :root {
-        --card-padding: 8px;
-        --section-gap: 12px;
-        --queue-item-height: 64px;
-    }
-}
-
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: #f3dadc;
-    /* rose-50 for Pink Chic */
+    background-color: #f8fafc;
     color: #1e293b;
-    /* slate-800 */
     -webkit-font-smoothing: antialiased;
 }
 
@@ -88,21 +68,6 @@ body {
     font-family: 'The Seasons', 'Playfair Display', Georgia, serif;
     font-weight: 700;
     letter-spacing: 0.15em;
-}
-
-/* Mobile Sidebar Slide-in Animation */
-@keyframes slideInLeft {
-    from {
-        transform: translateX(-100%);
-    }
-
-    to {
-        transform: translateX(0);
-    }
-}
-
-.animate-slide-in-left {
-    animation: slideInLeft 0.3s ease-out forwards;
 }
 
 /* Mobile-friendly form inputs (prevent iOS auto-zoom) */
@@ -115,12 +80,6 @@ textarea {
 /* Touch-friendly button sizing utility */
 .touch-target {
     min-height: 44px;
-}
-
-/* Horizontal scroll wrapper for charts */
-.chart-scroll-wrapper {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
 }
 
 /* iOS Safe Area Padding */
@@ -144,211 +103,10 @@ textarea {
     padding-right: env(safe-area-inset-right, 0px);
 }
 
-/* iOS Grouped Background Color */
-.bg-ios-grouped {
-    background-color: #F2F2F7;
-}
-
-/* Horizontal scroll with iOS momentum */
-.scroll-x-ios {
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-
-.scroll-x-ios::-webkit-scrollbar {
-    display: none;
-}
-
-/* On Break compact carousel container */
-.on-break-carousel {
-    display: flex;
-    gap: var(--item-gap);
-    padding: var(--card-padding-sm);
-    max-height: var(--on-break-max-height);
-}
-
-/* Compact chip for On Break */
-.break-chip {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 12px;
-    min-width: 80px;
-    max-width: 100px;
-    min-height: var(--tap-min);
-    border-radius: var(--card-radius-sm);
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
-    flex-shrink: 0;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.break-chip:hover,
-.break-chip:active {
-    background: #ffedd5;
-    border-color: #fb923c;
-}
-
-.break-chip-name {
-    font-size: var(--text-secondary);
-    font-weight: 600;
-    color: #1e293b;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-    line-height: var(--line-height);
-}
-
-.break-chip-time {
-    font-size: var(--text-xs);
-    font-weight: 500;
-    color: #ea580c;
-    font-family: ui-monospace, monospace;
-}
-
-/* ============================================
-   Bottom Sheet Modal Styles
-   ============================================ */
-
 /* Body scroll lock when modal is open */
 body.modal-open {
     overflow: hidden;
     position: fixed;
     width: 100%;
     height: 100%;
-}
-
-/* Backdrop */
-.bottom-sheet-backdrop {
-    position: fixed;
-    inset: 0;
-    background-color: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(8px);
-    z-index: 50;
-    display: flex;
-    align-items: flex-end;
-}
-
-/* Sheet container - Full height on mobile */
-.bottom-sheet-container {
-    position: relative;
-    width: 100%;
-    height: 100dvh;
-    max-height: 100dvh;
-    background: white;
-    border-radius: 24px 24px 0 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
-}
-
-/* Fallback for browsers without dvh support */
-@supports not (height: 100dvh) {
-    .bottom-sheet-container {
-        height: 100vh;
-        max-height: 100vh;
-    }
-}
-
-/* Desktop: center modal */
-@media (min-width: 768px) {
-    .bottom-sheet-backdrop {
-        align-items: center;
-        justify-content: center;
-        padding: 16px;
-    }
-
-    .bottom-sheet-container {
-        max-width: 600px;
-        max-height: 80vh;
-        border-radius: 24px;
-    }
-}
-
-/* Drag handle */
-.bottom-sheet-handle {
-    width: 48px;
-    height: 4px;
-    background-color: #cbd5e1;
-    border-radius: 2px;
-    margin: 8px auto 4px;
-}
-
-/* Sticky header */
-.bottom-sheet-header {
-    position: sticky;
-    top: 0;
-    background: white;
-    border-bottom: 1px solid #f1f5f9;
-    padding: 8px 16px 12px;
-    padding-top: calc(8px + env(safe-area-inset-top, 0px));
-    z-index: 10;
-}
-
-/* Scrollable content */
-.bottom-sheet-content {
-    flex: 1;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    padding: 16px;
-}
-
-/* Sticky footer */
-.bottom-sheet-footer {
-    position: sticky;
-    bottom: 0;
-    background: white;
-    border-top: 1px solid #f1f5f9;
-    padding: 16px;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-    z-index: 10;
-}
-
-/* Selection row styles handled via Tailwind/inline for distinct structure */
-.selection-row-container {
-    /* No specialized container styles needed, handled in component */
-}
-
-/* Action row (Add New Technician) - Secondary outline style */
-.action-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-height: 52px;
-    padding: 10px 12px;
-    border-radius: var(--radius-button);
-    cursor: pointer;
-    background-color: var(--color-surface);
-    border: 2px solid var(--color-primary);
-    transition: all 0.15s ease;
-}
-
-.action-row:hover {
-    background-color: var(--color-primary-soft);
-}
-
-.action-row:active {
-    transform: scale(0.99);
-    background-color: var(--color-primary-soft);
-}
-
-.action-row-icon {
-    width: 20px;
-    height: 20px;
-    color: var(--color-primary);
-    flex-shrink: 0;
-}
-
-.action-row-text {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--color-primary);
 }

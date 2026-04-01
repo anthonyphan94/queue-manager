@@ -54,10 +54,6 @@ interface UndoSnapshot {
  * - Included <= Ready (always)
  */
 interface MarketingState {
-    // === Tab State ===
-    activeTab: 'manual' | 'csv';
-    setActiveTab: (tab: 'manual' | 'csv') => void;
-
     // === ROW STATE ===
     rows: Row[];
 
@@ -121,10 +117,6 @@ interface MarketingState {
  * Marketing Store - Mail-Style Implementation
  */
 export const useMarketingStore = create<MarketingState>((set, get) => ({
-    // === Tab State ===
-    activeTab: 'manual',
-    setActiveTab: (tab) => set({ activeTab: tab }),
-
     // === ROW STATE ===
     rows: [],
 
