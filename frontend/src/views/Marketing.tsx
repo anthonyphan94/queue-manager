@@ -199,7 +199,7 @@ export default function Marketing() {
         }
     };
 
-    const singleIsValid = singleName.trim() && singlePhone.trim().length >= 10 && singleMessage.trim();
+    const singleIsValid = singleName.trim() && singlePhone.replace(/\D/g, '').length >= 10 && singleMessage.trim();
 
     // Show PIN modal if not authenticated
     if (!isAuthenticated) {
@@ -509,7 +509,7 @@ export default function Marketing() {
                                             type="tel"
                                             value={singlePhone}
                                             onChange={(e) => setSinglePhone(e.target.value)}
-                                            placeholder="9015551234"
+                                            placeholder="(901) 555-1234"
                                             disabled={singleSending}
                                         />
                                     </div>
