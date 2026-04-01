@@ -47,7 +47,9 @@ export function CsvImportTab() {
     } = useMarketingStore();
 
     const [isUploading, setIsUploading] = useState(false);
+    const [isFetchingSheets, setIsFetchingSheets] = useState(false);
     const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+    const [showSendConfirm, setShowSendConfirm] = useState(false);
     const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
     const tableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -118,6 +120,62 @@ export function CsvImportTab() {
         }
     };
 
+    // === FETCH FROM GOOGLE SHEETS HANDLER ===
+    const fetchFromSheets = async () => {
+        setIsFetchingSheets(true);
+        setError(null);
+        clearResults();
+
+        try {
+            const authHeader = useAuthStore.getState().getAuthHeader();
+            const response = await fetch(`${API_BASE}/marketing/prepare`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeader },
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to fetch from Google Sheets');
+            }
+
+            const data = await response.json();
+
+            // Transform API response to Row model (same format as CSV)
+            const importedRows: Row[] = [];
+
+            data.contacts.forEach((c: any, idx: number) => {
+                importedRows.push({
+                    id: `row-${idx}`,
+                    rowIndex: idx + 1,
+                    name: c.name,
+                    phone: c.phone,
+                    status: 'ready',
+                    errors: [],
+                });
+            });
+
+            data.errors.forEach((errMsg: string, idx: number) => {
+                const match = errMsg.match(/Row (\d+)/);
+                const rowNum = match ? parseInt(match[1]) : importedRows.length + idx + 1;
+                importedRows.push({
+                    id: `error-${idx}`,
+                    rowIndex: rowNum,
+                    name: '—',
+                    phone: '—',
+                    status: 'excluded',
+                    errors: [errMsg],
+                });
+            });
+
+            importedRows.sort((a, b) => a.rowIndex - b.rowIndex);
+            setImportData(importedRows);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to fetch from Google Sheets');
+        } finally {
+            setIsFetchingSheets(false);
+        }
+    };
+
     // === BROADCAST HANDLER ===
     const handleBroadcast = async () => {
         const includedRows = getIncludedRows();
@@ -164,7 +222,26 @@ export function CsvImportTab() {
         <div className="csv-tab">
             {/* === UPLOAD AREA === */}
             {!hasData && !hasResults && (
-                <CsvDropzone isUploading={isUploading} onFileSelect={uploadFile} />
+                <div className="import-options">
+                    <CsvDropzone isUploading={isUploading} onFileSelect={uploadFile} />
+                    <div className="import-divider">
+                        <span>or</span>
+                    </div>
+                    <button
+                        className="sheets-fetch-button"
+                        onClick={fetchFromSheets}
+                        disabled={isFetchingSheets || isUploading}
+                    >
+                        {isFetchingSheets ? (
+                            'Fetching & cleaning...'
+                        ) : (
+                            <>📋 Fetch from Google Sheets</>
+                        )}
+                    </button>
+                    <p className="sheets-hint">
+                        Pulls contacts from Google Sheets and filters out opt-outs, failures, and duplicates.
+                    </p>
+                </div>
             )}
 
             {/* === PREVIEW TABLE === */}
@@ -345,7 +422,7 @@ export function CsvImportTab() {
                     {/* BROADCAST BUTTON */}
                     <button
                         className="broadcast-button"
-                        onClick={handleBroadcast}
+                        onClick={() => setShowSendConfirm(true)}
                         disabled={!isReady || isSending}
                     >
                         {isSending
@@ -386,6 +463,21 @@ export function CsvImportTab() {
                         setShowRemoveConfirm(false);
                     }}
                     onCancel={() => setShowRemoveConfirm(false)}
+                />
+            )}
+
+            {/* === SEND CONFIRMATION MODAL === */}
+            {showSendConfirm && (
+                <ConfirmModal
+                    title="Send SMS?"
+                    message={`You are about to send ${counts.included} SMS message${counts.included !== 1 ? 's' : ''}. This will use your Twilio credits and cannot be undone.`}
+                    confirmLabel="Send Now"
+                    cancelLabel="Cancel"
+                    onConfirm={() => {
+                        setShowSendConfirm(false);
+                        handleBroadcast();
+                    }}
+                    onCancel={() => setShowSendConfirm(false)}
                 />
             )}
         </div>

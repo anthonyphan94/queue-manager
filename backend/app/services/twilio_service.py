@@ -7,12 +7,33 @@ and SMS sending logic for the Marketing SMS Module.
 
 import os
 import re
+import time
 import logging
 from typing import Optional
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
 
 logger = logging.getLogger(__name__)
+
+# --- Opt-out / Permanent Failure Detection ---
+
+# Twilio error codes that indicate permanent failures (not worth retrying)
+PERMANENT_FAIL_CODES = {"21610", "30005", "21211"}
+
+# Keywords that indicate a recipient has opted out
+STOP_WORDS = {"stop", "unsubscribe", "cancel", "end", "quit"}
+
+# How many Twilio messages to scan for bad numbers
+BAD_NUMBER_FETCH_LIMIT = 10000
+
+# Cache TTL in seconds (30 minutes)
+_CACHE_TTL = 1800
+
+_bad_cache = {
+    "numbers": set(),
+    "last_fetched": 0,
+    "last_date": None,
+}
 
 # --- Twilio Client Singleton ---
 
@@ -65,6 +86,62 @@ def get_messaging_service_sid() -> str:
     if not sid:
         raise ValueError("TWILIO_MESSAGING_SERVICE_SID is not configured.")
     return sid
+
+
+# --- Bad Number Detection (opt-outs + permanent failures) ---
+
+
+def _scan_messages(messages) -> set:
+    """Extract opt-outs and permanent failures from a list of Twilio messages."""
+    stop = set()
+    failed = set()
+    for msg in messages:
+        if msg.direction == "inbound" and msg.body and msg.body.strip().lower() in STOP_WORDS:
+            stop.add(msg.from_.lstrip("+"))
+        elif msg.direction == "outbound-api" and msg.status in ("failed", "undelivered"):
+            code = str(msg.error_code) if msg.error_code else ""
+            if code in PERMANENT_FAIL_CODES:
+                failed.add(msg.to.lstrip("+"))
+    return stop | failed
+
+
+def fetch_bad_numbers() -> set:
+    """Cached fetch of bad numbers (opt-outs + permanent failures) from Twilio history.
+
+    First call does a full scan. Subsequent calls within the cache TTL return
+    the cached set. After TTL expires, does an incremental scan for new messages.
+    """
+    now = time.time()
+
+    # Return cached set if still fresh
+    if _bad_cache["numbers"] and (now - _bad_cache["last_fetched"]) < _CACHE_TTL:
+        return set(_bad_cache["numbers"])
+
+    client = get_twilio_client()
+
+    if _bad_cache["last_date"]:
+        # Incremental fetch — only messages since last scan
+        messages = client.messages.list(
+            limit=BAD_NUMBER_FETCH_LIMIT,
+            page_size=1000,
+            date_sent_after=_bad_cache["last_date"],
+        )
+        new_bad = _scan_messages(messages)
+        _bad_cache["numbers"].update(new_bad)
+    else:
+        # Full fetch on first call
+        messages = client.messages.list(
+            limit=BAD_NUMBER_FETCH_LIMIT,
+            page_size=1000,
+        )
+        _bad_cache["numbers"] = _scan_messages(messages)
+
+    from datetime import datetime, timezone
+    _bad_cache["last_fetched"] = now
+    _bad_cache["last_date"] = datetime.now(timezone.utc)
+
+    logger.info(f"Bad number scan complete: {len(_bad_cache['numbers'])} bad numbers found")
+    return set(_bad_cache["numbers"])
 
 
 # --- Phone Number Cleaning ---
@@ -183,26 +260,59 @@ async def send_batch_sms(
 ) -> list[dict]:
     """
     Send SMS messages to multiple recipients.
-    
+
+    Before sending, filters out:
+    - Opt-outs (recipients who replied STOP/UNSUBSCRIBE/etc.)
+    - Permanent failures (error codes 21610, 30005, 21211)
+    - Duplicate phone numbers
+
     Args:
         recipients: List of dicts with 'name' and 'phone' keys.
         message_template: Message template (may contain [name] placeholder).
-    
+
     Returns:
         List of result dicts with 'name', 'phone', 'status', 'sid'/'error' keys.
     """
     results = []
-    
+
+    # Fetch bad numbers (opt-outs + permanent failures)
+    try:
+        bad_numbers = fetch_bad_numbers()
+        logger.info(f"Loaded {len(bad_numbers)} bad numbers for filtering")
+    except Exception as e:
+        logger.warning(f"Could not fetch bad numbers, sending without filter: {e}")
+        bad_numbers = set()
+
+    seen_phones = set()
+
     for recipient in recipients:
         name = recipient.get("name", "")
         phone = recipient.get("phone", "")
-        
+
         result = {
             "name": name,
             "phone": phone,
             "status": "pending"
         }
-        
+
+        # Strip + for comparison (bad_numbers stores without +)
+        phone_stripped = phone.lstrip("+")
+
+        # Skip duplicates
+        if phone_stripped in seen_phones:
+            result["status"] = "failed"
+            result["error"] = "Duplicate phone number (skipped)"
+            results.append(result)
+            continue
+        seen_phones.add(phone_stripped)
+
+        # Skip opt-outs and permanent failures
+        if phone_stripped in bad_numbers:
+            result["status"] = "failed"
+            result["error"] = "Opted out or previously failed (skipped)"
+            results.append(result)
+            continue
+
         try:
             sid = await send_sms(phone, message_template, name)
             result["status"] = "sent"
@@ -219,7 +329,7 @@ async def send_batch_sms(
             result["status"] = "failed"
             result["error"] = "Unexpected error occurred"
             logger.exception(f"Unexpected error sending to {phone}: {e}")
-        
+
         results.append(result)
-    
+
     return results

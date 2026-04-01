@@ -290,6 +290,75 @@
     margin: 0.5rem 0 0;
 }
 
+/* Import Options (CSV + Google Sheets) */
+.import-options {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+
+.import-options .dropzone {
+    width: 100%;
+}
+
+.import-divider {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin: 1.25rem 0;
+    gap: 1rem;
+}
+
+.import-divider::before,
+.import-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #fecdd3;
+}
+
+.import-divider span {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.sheets-fetch-button {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid #e11d48;
+    border-radius: 16px;
+    background: white;
+    color: #e11d48;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sheets-fetch-button:hover:not(:disabled) {
+    background: #e11d48;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
+}
+
+.sheets-fetch-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.sheets-hint {
+    margin: 0.5rem 0 0;
+    font-size: 0.8rem;
+    color: #64748b;
+    text-align: center;
+}
+
 /* ================================================
    MAIL-STYLE BULK SELECTION TABLE
    ================================================ */

@@ -123,9 +123,6 @@ export function PinModal() {
                     </button>
                 </form>
 
-                <a href="/" className="pin-back-link">
-                    ← Back to Dashboard
-                </a>
             </div>
         </div>
     );

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useMarketingStore } from '../store/marketingStore';
 import { useAuthStore } from '../store/authStore';
 import { ManualTab } from '../features/marketing/ManualTab';
@@ -38,7 +37,7 @@ export default function Marketing() {
     return (
         <div className="marketing-page">
             <div className="marketing-top-bar">
-                <Link to="/" className="back-link">&larr; Back to Dashboard</Link>
+                <div />
                 <div className="top-bar-actions">
                     <button
                         onClick={() => setShowChangePinModal(true)}

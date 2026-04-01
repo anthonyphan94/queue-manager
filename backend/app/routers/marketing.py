@@ -23,8 +23,10 @@ from pydantic import BaseModel, Field
 from app.services.twilio_service import (
     clean_phone_number,
     send_sms,
-    send_batch_sms
+    send_batch_sms,
+    fetch_bad_numbers,
 )
+from app.services.sheets_service import fetch_phone_numbers
 from app.auth import verify_pin, verify_pin_endpoint, change_pin
 
 logger = logging.getLogger(__name__)
@@ -253,6 +255,75 @@ async def preview_csv(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="File size exceeds 5MB limit")
     
     return parse_csv_file(content)
+
+
+@router.post("/prepare", response_model=PreviewResponse)
+async def prepare_recipients(_: bool = Depends(verify_pin)):
+    """
+    Fetch phone numbers from Google Sheets and clean against Twilio history.
+
+    Pulls all contacts from the configured Google Sheet, then filters out:
+    - Invalid phone numbers
+    - Opt-outs (recipients who replied STOP/UNSUBSCRIBE/etc.)
+    - Permanent failures (error codes 21610, 30005, 21211)
+    - Duplicates
+
+    PROTECTED: Requires X-Marketing-Pin header.
+    """
+    try:
+        # Step 1: Fetch from Google Sheets
+        raw_contacts = fetch_phone_numbers()
+    except Exception as e:
+        logger.error(f"Failed to fetch from Google Sheets: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch from Google Sheets: {str(e)}")
+
+    # Step 2: Fetch bad numbers from Twilio history
+    try:
+        bad_numbers = fetch_bad_numbers()
+        logger.info(f"Loaded {len(bad_numbers)} bad numbers for filtering")
+    except Exception as e:
+        logger.warning(f"Could not fetch bad numbers, skipping filter: {e}")
+        bad_numbers = set()
+
+    # Step 3: Clean and filter
+    contacts = []
+    errors = []
+    seen_phones = set()
+
+    for i, contact in enumerate(raw_contacts):
+        name = contact["name"]
+        phone_raw = contact["phone"]
+        row_num = i + 1
+
+        # Validate phone format
+        try:
+            cleaned_phone = clean_phone_number(phone_raw)
+        except ValueError as e:
+            errors.append(f"Row {row_num}: {str(e)} (name: {name})")
+            continue
+
+        phone_stripped = cleaned_phone.lstrip("+")
+
+        # Skip duplicates
+        if phone_stripped in seen_phones:
+            errors.append(f"Row {row_num}: Duplicate phone number (name: {name})")
+            continue
+        seen_phones.add(phone_stripped)
+
+        # Skip opt-outs and permanent failures
+        if phone_stripped in bad_numbers:
+            errors.append(f"Row {row_num}: Opted out or previously failed (name: {name})")
+            continue
+
+        contacts.append(Contact(name=name, phone=cleaned_phone))
+
+    return PreviewResponse(
+        contacts=contacts,
+        total_count=len(raw_contacts),
+        valid_count=len(contacts),
+        invalid_count=len(errors),
+        errors=errors[:20],
+    )
 
 
 @router.post("/send-single", response_model=SingleSmsResponse)
