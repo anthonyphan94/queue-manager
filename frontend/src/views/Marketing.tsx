@@ -54,6 +54,14 @@ export default function Marketing() {
     const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
     const tableContainerRef = useRef<HTMLDivElement>(null);
 
+    // Single SMS state
+    const [singleName, setSingleName] = useState('');
+    const [singlePhone, setSinglePhone] = useState('');
+    const [singleMessage, setSingleMessage] = useState('');
+    const [singleSending, setSingleSending] = useState(false);
+    const [singleSuccess, setSingleSuccess] = useState<string | null>(null);
+    const [singleError, setSingleError] = useState<string | null>(null);
+
     // Check for stored auth on mount
     useEffect(() => {
         checkStoredAuth();
@@ -157,6 +165,41 @@ export default function Marketing() {
         }
         setTimeout(() => setHighlightedRowId(null), 2000);
     };
+
+    // === SINGLE SMS HANDLER ===
+    const handleSingleSend = async () => {
+        if (!singleName.trim() || !singlePhone.trim() || !singleMessage.trim()) return;
+
+        setSingleSending(true);
+        setSingleError(null);
+        setSingleSuccess(null);
+
+        try {
+            const authHeader = useAuthStore.getState().getAuthHeader();
+            const response = await fetch(`${API_BASE}/marketing/send-single`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeader },
+                body: JSON.stringify({ name: singleName, phone: singlePhone, message: singleMessage }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setSingleSuccess('SMS sent successfully.');
+                setSingleName('');
+                setSinglePhone('');
+                setSingleMessage('');
+            } else {
+                setSingleError(data.error || 'Failed to send SMS');
+            }
+        } catch {
+            setSingleError('Network error. Please check your connection.');
+        } finally {
+            setSingleSending(false);
+        }
+    };
+
+    const singleIsValid = singleName.trim() && singlePhone.trim().length >= 10 && singleMessage.trim();
 
     // Show PIN modal if not authenticated
     if (!isAuthenticated) {
@@ -397,44 +440,109 @@ export default function Marketing() {
                         )}
                     </div>
 
-                    {/* RIGHT PANEL: Message Composer */}
-                    <div className="marketing-card composer-panel">
-                        <div className="panel-header">
-                            <h2 className="panel-title">Compose Message</h2>
-                        </div>
-
-                        <div className="composer-body">
-                            <div className="form-group">
-                                <label htmlFor="broadcast-message">Message</label>
-                                <textarea
-                                    id="broadcast-message"
-                                    value={messageDraft}
-                                    onChange={(e) => setMessageDraft(e.target.value)}
-                                    placeholder="Hi [name], don't miss our 20% off sale this weekend!"
-                                    rows={6}
-                                    disabled={isSending}
-                                />
-                                <div className="textarea-meta">
-                                    <span className="hint">Use [name] to personalize each message.</span>
-                                    <span className="char-count">{messageDraft.length}/1600</span>
-                                </div>
-                                <SmsCostEstimate message={messageDraft} recipientCount={counts.included} />
+                    {/* RIGHT COLUMN */}
+                    <div className="right-column">
+                        {/* Broadcast Composer */}
+                        <div className="marketing-card composer-panel">
+                            <div className="panel-header">
+                                <h2 className="panel-title">Broadcast Message</h2>
                             </div>
 
-                            <button
-                                className="btn-primary broadcast-btn"
-                                onClick={() => setShowSendConfirm(true)}
-                                disabled={!isReady || isSending}
-                            >
-                                {isSending
-                                    ? `Sending to ${counts.included} recipients...`
-                                    : `Send to ${counts.included} recipient${counts.included !== 1 ? 's' : ''}`
-                                }
-                            </button>
+                            <div className="composer-body">
+                                <div className="form-group">
+                                    <label htmlFor="broadcast-message">Message</label>
+                                    <textarea
+                                        id="broadcast-message"
+                                        value={messageDraft}
+                                        onChange={(e) => setMessageDraft(e.target.value)}
+                                        placeholder="Hi [name], don't miss our 20% off sale this weekend!"
+                                        rows={5}
+                                        disabled={isSending}
+                                    />
+                                    <div className="textarea-meta">
+                                        <span className="hint">Use [name] to personalize each message.</span>
+                                        <span className="char-count">{messageDraft.length}/1600</span>
+                                    </div>
+                                    <SmsCostEstimate message={messageDraft} recipientCount={counts.included || 1} />
+                                </div>
 
-                            {!hasData && (
-                                <p className="composer-hint">Load recipients to enable sending.</p>
-                            )}
+                                <button
+                                    className="btn-primary broadcast-btn"
+                                    onClick={() => setShowSendConfirm(true)}
+                                    disabled={!isReady || isSending}
+                                >
+                                    {isSending
+                                        ? `Sending to ${counts.included} recipients...`
+                                        : `Send to ${counts.included} recipient${counts.included !== 1 ? 's' : ''}`
+                                    }
+                                </button>
+
+                                {!hasData && (
+                                    <p className="composer-hint">Load recipients to enable broadcasting.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Quick Send - Single SMS */}
+                        <div className="marketing-card quick-send-panel">
+                            <div className="panel-header">
+                                <h2 className="panel-title">Quick Send</h2>
+                            </div>
+
+                            <div className="composer-body">
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label htmlFor="single-name">Name</label>
+                                        <input
+                                            id="single-name"
+                                            type="text"
+                                            value={singleName}
+                                            onChange={(e) => setSingleName(e.target.value)}
+                                            placeholder="Jane Doe"
+                                            disabled={singleSending}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label htmlFor="single-phone">Phone</label>
+                                        <input
+                                            id="single-phone"
+                                            type="tel"
+                                            value={singlePhone}
+                                            onChange={(e) => setSinglePhone(e.target.value)}
+                                            placeholder="9015551234"
+                                            disabled={singleSending}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label htmlFor="single-message">Message</label>
+                                    <textarea
+                                        id="single-message"
+                                        value={singleMessage}
+                                        onChange={(e) => setSingleMessage(e.target.value)}
+                                        placeholder="Hi [name], just wanted to let you know..."
+                                        rows={3}
+                                        disabled={singleSending}
+                                    />
+                                    <div className="textarea-meta">
+                                        <span className="hint">Use [name] to personalize.</span>
+                                        <span className="char-count">{singleMessage.length}/1600</span>
+                                    </div>
+                                    <SmsCostEstimate message={singleMessage} />
+                                </div>
+
+                                {singleError && <div className="error-message">{singleError}</div>}
+                                {singleSuccess && <div className="success-message">{singleSuccess}</div>}
+
+                                <button
+                                    className="btn-primary broadcast-btn"
+                                    onClick={handleSingleSend}
+                                    disabled={!singleIsValid || singleSending}
+                                >
+                                    {singleSending ? 'Sending...' : 'Send SMS'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

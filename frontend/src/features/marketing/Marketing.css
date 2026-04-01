@@ -458,16 +458,23 @@
     display: inline;
 }
 
-/* === COMPOSER PANEL === */
-.composer-panel {
-    min-height: 200px;
+/* === RIGHT COLUMN === */
+.right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
 }
 
 @media (min-width: 768px) {
-    .composer-panel {
+    .right-column {
         position: sticky;
         top: 1.5rem;
     }
+}
+
+/* === COMPOSER PANEL === */
+.composer-panel {
+    min-height: 200px;
 }
 
 .composer-body {
@@ -494,6 +501,7 @@
     font-size: 0.875rem;
 }
 
+.form-group input,
 .form-group textarea {
     width: 100%;
     padding: 0.75rem 1rem;
@@ -504,8 +512,29 @@
     font-size: 0.95rem;
     font-family: inherit;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-group textarea {
     resize: vertical;
     min-height: 120px;
+}
+
+.form-group input:focus,
+.form-group input:focus-visible {
+    outline: none;
+    border-color: #e11d48;
+    box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.1);
+}
+
+.form-group input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
 }
 
 .form-group textarea:focus {

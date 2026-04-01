@@ -27,9 +27,10 @@ def _get_gspread_client() -> gspread.Client:
 
     # Cloud Run: use Application Default Credentials
     creds, _ = google.auth.default(scopes=[
-        "https://www.googleapis.com/auth/spreadsheets.readonly",
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
     ])
-    return gspread.Client(auth=creds)
+    return gspread.authorize(creds)
 
 
 def fetch_phone_numbers() -> list[dict]:
