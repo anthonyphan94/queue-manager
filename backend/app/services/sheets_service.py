@@ -9,7 +9,7 @@ import os
 import logging
 
 import gspread
-from google.auth.default import default as google_auth_default
+import google.auth
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ def _get_gspread_client() -> gspread.Client:
         return gspread.service_account(filename=creds_file)
 
     # Cloud Run: use Application Default Credentials
-    creds, _ = google_auth_default(scopes=[
+    creds, _ = google.auth.default(scopes=[
         "https://www.googleapis.com/auth/spreadsheets.readonly",
     ])
     return gspread.Client(auth=creds)
