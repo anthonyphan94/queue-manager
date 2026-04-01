@@ -9,6 +9,7 @@ import os
 import logging
 
 import gspread
+from google.auth.default import default as google_auth_default
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,11 @@ def _get_gspread_client() -> gspread.Client:
     if creds_file and os.path.exists(creds_file):
         return gspread.service_account(filename=creds_file)
 
-    # Fall back to Application Default Credentials (Cloud Run)
-    return gspread.service_account()
+    # Cloud Run: use Application Default Credentials
+    creds, _ = google_auth_default(scopes=[
+        "https://www.googleapis.com/auth/spreadsheets.readonly",
+    ])
+    return gspread.Client(auth=creds)
 
 
 def fetch_phone_numbers() -> list[dict]:
