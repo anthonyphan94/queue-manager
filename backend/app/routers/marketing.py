@@ -276,8 +276,10 @@ async def prepare_recipients(_: bool = Depends(verify_pin)):
         raw_contacts = fetch_phone_numbers()
         logger.info(f"[prepare] Step 1 done: {len(raw_contacts)} raw contacts fetched")
     except Exception as e:
-        logger.error(f"[prepare] Step 1 FAILED: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to fetch from Google Sheets: {str(e)}")
+        import traceback
+        tb = traceback.format_exc()
+        logger.error(f"[prepare] Step 1 FAILED: {type(e).__name__}: {e}\n{tb}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch from Google Sheets: {type(e).__name__}: {e}")
 
     # Step 2: Fetch bad numbers from Twilio history
     try:
