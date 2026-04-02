@@ -5,6 +5,7 @@ Encapsulates Twilio client initialization, phone number cleaning,
 and SMS sending logic for the Marketing SMS Module.
 """
 
+import asyncio
 import os
 import re
 import time
@@ -26,14 +27,11 @@ STOP_WORDS = {"stop", "unsubscribe", "cancel", "end", "quit"}
 # How many Twilio messages to scan for bad numbers
 BAD_NUMBER_FETCH_LIMIT = 10000
 
-# Cache TTL in seconds (30 minutes)
-_CACHE_TTL = 1800
+# Firestore collection for real-time opt-out storage
+_OPT_OUTS_COLLECTION = "opt_outs"
 
-_bad_cache = {
-    "numbers": set(),
-    "last_fetched": 0,
-    "last_date": None,
-}
+# Maximum concurrent Twilio API calls for batch sending
+_SEND_CONCURRENCY = 10
 
 # --- Recently Sent Tracker (30-min dedup, Firestore-backed) ---
 
@@ -133,11 +131,56 @@ def get_messaging_service_sid() -> str:
     return sid
 
 
-# --- Bad Number Detection (opt-outs + permanent failures) ---
+# --- Opt-out Storage (Firestore-backed) ---
+
+
+async def add_opt_out(phone_stripped: str, reason: str = "inbound_stop") -> None:
+    """Record a phone number as opted out in Firestore."""
+    from app.database import _get_db, firestore
+    db = _get_db()
+    if not db or not firestore:
+        logger.warning(f"Firestore unavailable — cannot save opt-out for {phone_stripped}")
+        return
+
+    try:
+        await db.collection(_OPT_OUTS_COLLECTION).document(phone_stripped).set({
+            "phone": f"+{phone_stripped}",
+            "reason": reason,
+            "created_at": firestore.SERVER_TIMESTAMP,
+        })
+        logger.info(f"Opt-out recorded: {phone_stripped} ({reason})")
+    except Exception as e:
+        logger.error(f"Failed to save opt-out for {phone_stripped}: {e}")
+
+
+async def fetch_opt_outs() -> set:
+    """Fetch all opted-out phone numbers from Firestore.
+
+    Returns a set of phone numbers (without +) for fast lookup.
+    Replaces the slow Twilio 10,000-message scan.
+    """
+    from app.database import _get_db
+    db = _get_db()
+    if not db:
+        return set()
+
+    try:
+        docs = db.collection(_OPT_OUTS_COLLECTION).stream()
+        numbers = set()
+        async for doc in docs:
+            numbers.add(doc.id)
+        logger.info(f"Loaded {len(numbers)} opt-outs from Firestore")
+        return numbers
+    except Exception as e:
+        logger.error(f"Failed to fetch opt-outs from Firestore: {e}")
+        return set()
 
 
 def _scan_messages(messages) -> set:
-    """Extract opt-outs and permanent failures from a list of Twilio messages."""
+    """Extract opt-outs and permanent failures from a list of Twilio messages.
+
+    Used only by seed_opt_outs() for one-time migration.
+    """
     stop = set()
     failed = set()
     for msg in messages:
@@ -150,43 +193,25 @@ def _scan_messages(messages) -> set:
     return stop | failed
 
 
-def fetch_bad_numbers() -> set:
-    """Cached fetch of bad numbers (opt-outs + permanent failures) from Twilio history.
+async def seed_opt_outs() -> int:
+    """One-time migration: scan Twilio history and populate Firestore opt_outs.
 
-    First call does a full scan. Subsequent calls within the cache TTL return
-    the cached set. After TTL expires, does an incremental scan for new messages.
+    Scans the last BAD_NUMBER_FETCH_LIMIT messages for opt-outs and permanent
+    failures, then writes them to Firestore. Safe to run multiple times
+    (Firestore set() is idempotent).
+
+    Returns the number of opt-outs seeded.
     """
-    now = time.time()
-
-    # Return cached set if still fresh
-    if _bad_cache["numbers"] and (now - _bad_cache["last_fetched"]) < _CACHE_TTL:
-        return set(_bad_cache["numbers"])
-
     client = get_twilio_client()
+    logger.info(f"Seeding opt-outs: scanning last {BAD_NUMBER_FETCH_LIMIT} Twilio messages...")
+    messages = client.messages.list(limit=BAD_NUMBER_FETCH_LIMIT, page_size=1000)
+    bad_numbers = _scan_messages(messages)
 
-    if _bad_cache["last_date"]:
-        # Incremental fetch — only messages since last scan
-        messages = client.messages.list(
-            limit=BAD_NUMBER_FETCH_LIMIT,
-            page_size=1000,
-            date_sent_after=_bad_cache["last_date"],
-        )
-        new_bad = _scan_messages(messages)
-        _bad_cache["numbers"].update(new_bad)
-    else:
-        # Full fetch on first call
-        messages = client.messages.list(
-            limit=BAD_NUMBER_FETCH_LIMIT,
-            page_size=1000,
-        )
-        _bad_cache["numbers"] = _scan_messages(messages)
+    for phone in bad_numbers:
+        await add_opt_out(phone, reason="seeded")
 
-    from datetime import datetime, timezone
-    _bad_cache["last_fetched"] = now
-    _bad_cache["last_date"] = datetime.now(timezone.utc)
-
-    logger.info(f"Bad number scan complete: {len(_bad_cache['numbers'])} bad numbers found")
-    return set(_bad_cache["numbers"])
+    logger.info(f"Seeded {len(bad_numbers)} opt-outs from Twilio history")
+    return len(bad_numbers)
 
 
 # --- Phone Number Cleaning ---
@@ -274,15 +299,21 @@ async def send_sms(to: str, body: str, recipient_name: Optional[str] = None) -> 
         final_message = personalize_message(body, recipient_name)
     
     try:
-        message = client.messages.create(
+        message = await asyncio.to_thread(
+            client.messages.create,
             messaging_service_sid=messaging_service_sid,
             to=cleaned_phone,
-            body=final_message
+            body=final_message,
         )
         logger.info(f"SMS sent to {cleaned_phone}. SID: {message.sid}")
         return message.sid
     
     except TwilioRestException as e:
+        # Record permanent failures as opt-outs in Firestore
+        if str(e.code) in PERMANENT_FAIL_CODES:
+            phone_stripped = cleaned_phone.lstrip("+")
+            await add_opt_out(phone_stripped, reason=f"error_{e.code}")
+
         # Map Twilio errors to user-friendly messages
         if e.code == 20003:
             raise ValueError("SMS service authentication failed. Please check your Twilio credentials.")
@@ -304,12 +335,10 @@ async def send_batch_sms(
     message_template: str
 ) -> list[dict]:
     """
-    Send SMS messages to multiple recipients.
+    Send SMS messages to multiple recipients with parallel sending.
 
-    Before sending, filters out:
-    - Opt-outs (recipients who replied STOP/UNSUBSCRIBE/etc.)
-    - Permanent failures (error codes 21610, 30005, 21211)
-    - Duplicate phone numbers
+    Phase 1 (sequential): Filters out duplicates, opt-outs, recent sends.
+    Phase 2 (parallel): Sends up to _SEND_CONCURRENCY SMS at a time.
 
     Args:
         recipients: List of dicts with 'name' and 'phone' keys.
@@ -318,71 +347,66 @@ async def send_batch_sms(
     Returns:
         List of result dicts with 'name', 'phone', 'status', 'sid'/'error' keys.
     """
-    results = []
-
-    # Fetch bad numbers (opt-outs + permanent failures)
+    # Fetch opt-outs from Firestore
     try:
-        bad_numbers = fetch_bad_numbers()
-        logger.info(f"Loaded {len(bad_numbers)} bad numbers for filtering")
+        bad_numbers = await fetch_opt_outs()
     except Exception as e:
-        logger.warning(f"Could not fetch bad numbers, sending without filter: {e}")
+        logger.warning(f"Could not fetch opt-outs, sending without filter: {e}")
         bad_numbers = set()
 
+    results: list[dict] = []
+    sendable: list[int] = []  # indices into results for items to send
     seen_phones = set()
 
+    # Phase 1: Filter
     for recipient in recipients:
         name = recipient.get("name", "")
         phone = recipient.get("phone", "")
-
-        result = {
-            "name": name,
-            "phone": phone,
-            "status": "pending"
-        }
-
-        # Strip + for comparison (bad_numbers stores without +)
         phone_stripped = phone.lstrip("+")
+        result = {"name": name, "phone": phone, "status": "pending"}
 
-        # Skip duplicates
         if phone_stripped in seen_phones:
             result["status"] = "failed"
             result["error"] = "Duplicate phone number (skipped)"
-            results.append(result)
-            continue
-        seen_phones.add(phone_stripped)
-
-        # Skip opt-outs and permanent failures
-        if phone_stripped in bad_numbers:
+        elif phone_stripped in bad_numbers:
             result["status"] = "failed"
             result["error"] = "Opted out or previously failed (skipped)"
-            results.append(result)
-            continue
-
-        # Skip if sent to within last 30 minutes
-        if await _is_recently_sent(phone_stripped):
+        elif await _is_recently_sent(phone_stripped):
             result["status"] = "failed"
             result["error"] = "Already sent to within last 30 minutes (skipped)"
-            results.append(result)
-            continue
-
-        try:
-            sid = await send_sms(phone, message_template, name)
-            await _mark_sent(phone_stripped)
-            result["status"] = "sent"
-            result["sid"] = sid
-        except ValueError as e:
-            result["status"] = "failed"
-            result["error"] = str(e)
-            logger.warning(f"Failed to send to {phone}: {e}")
-        except TwilioRestException as e:
-            result["status"] = "failed"
-            result["error"] = f"Twilio error: {e.msg}"
-            logger.error(f"Twilio error for {phone}: {e}")
-        except Exception as e:
-            result["status"] = "failed"
-            result["error"] = "Unexpected error occurred"
-            logger.exception(f"Unexpected error sending to {phone}: {e}")
+        else:
+            seen_phones.add(phone_stripped)
+            sendable.append(len(results))
 
         results.append(result)
+
+    # Phase 2: Send in parallel
+    sem = asyncio.Semaphore(_SEND_CONCURRENCY)
+
+    async def _send_one(idx: int):
+        async with sem:
+            r = results[idx]
+            phone = r["phone"]
+            name = r["name"]
+            phone_stripped = phone.lstrip("+")
+            try:
+                sid = await send_sms(phone, message_template, name)
+                await _mark_sent(phone_stripped)
+                r["status"] = "sent"
+                r["sid"] = sid
+            except ValueError as e:
+                r["status"] = "failed"
+                r["error"] = str(e)
+                logger.warning(f"Failed to send to {phone}: {e}")
+            except TwilioRestException as e:
+                r["status"] = "failed"
+                r["error"] = f"Twilio error: {e.msg}"
+                logger.error(f"Twilio error for {phone}: {e}")
+            except Exception as e:
+                r["status"] = "failed"
+                r["error"] = "Unexpected error occurred"
+                logger.exception(f"Unexpected error sending to {phone}: {e}")
+
+    await asyncio.gather(*[_send_one(i) for i in sendable])
 
     return results

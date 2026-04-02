@@ -20,8 +20,8 @@ from datetime import datetime
 from typing import Optional
 
 import pandas as pd
-from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, Request
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Depends, Request
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -30,9 +30,12 @@ from app.services.twilio_service import (
     clean_phone_number,
     send_sms,
     send_batch_sms,
-    fetch_bad_numbers,
+    fetch_opt_outs,
+    add_opt_out,
+    seed_opt_outs,
     _is_recently_sent,
     _mark_sent,
+    STOP_WORDS,
 )
 from app.services.sheets_service import fetch_phone_numbers
 from app.auth import verify_pin, verify_pin_endpoint, change_pin
@@ -289,11 +292,11 @@ async def prepare_recipients(_: bool = Depends(verify_pin)):
         logger.error(f"[prepare] Step 1 FAILED: {type(e).__name__}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch from Google Sheets. Please try again.")
 
-    # Step 2: Fetch bad numbers from Twilio history
+    # Step 2: Fetch opt-outs from Firestore
     try:
-        logger.info("[prepare] Step 2: Scanning Twilio history for bad numbers...")
-        bad_numbers = fetch_bad_numbers()
-        logger.info(f"[prepare] Step 2 done: {len(bad_numbers)} bad numbers found")
+        logger.info("[prepare] Step 2: Fetching opt-outs from Firestore...")
+        bad_numbers = await fetch_opt_outs()
+        logger.info(f"[prepare] Step 2 done: {len(bad_numbers)} opt-outs found")
     except Exception as e:
         logger.warning(f"[prepare] Step 2 FAILED (continuing without filter): {e}")
         bad_numbers = set()
@@ -437,9 +440,9 @@ async def send_batch_stream(request: Request, body: BatchSmsRequest, _: bool = D
     cancel_event = asyncio.Event()
     _active_batches[batch_id] = cancel_event
 
-    # Fetch bad numbers once before streaming
+    # Fetch opt-outs once before streaming
     try:
-        bad_numbers = fetch_bad_numbers()
+        bad_numbers = await fetch_opt_outs()
     except Exception:
         bad_numbers = set()
 
@@ -449,69 +452,92 @@ async def send_batch_stream(request: Request, body: BatchSmsRequest, _: bool = D
         failed = 0
         results = []
         seen_phones = set()
+        processed = 0
 
         yield f"data: {json.dumps({'type': 'start', 'batch_id': batch_id, 'total': total})}\n\n"
 
-        for i, recipient in enumerate(recipients):
+        # Phase 1: Filter (sequential, fast)
+        to_send = []
+        for recipient in recipients:
             if cancel_event.is_set():
-                yield f"data: {json.dumps({'type': 'cancelled', 'sent': sent, 'failed': failed, 'remaining': total - i})}\n\n"
-                break
+                yield f"data: {json.dumps({'type': 'cancelled', 'sent': sent, 'failed': failed, 'remaining': total - processed})}\n\n"
+                _active_batches.pop(batch_id, None)
+                return
 
             name = recipient.get("name", "")
             phone = recipient.get("phone", "")
             phone_stripped = phone.lstrip("+")
             result = {"name": name, "phone": phone, "status": "pending"}
 
-            # Skip duplicates
+            skip_reason = None
             if phone_stripped in seen_phones:
+                skip_reason = "Duplicate phone number (skipped)"
+            elif phone_stripped in bad_numbers:
+                skip_reason = "Opted out or previously failed (skipped)"
+            elif await _is_recently_sent(phone_stripped):
+                skip_reason = "Already sent to within last 30 minutes (skipped)"
+
+            if skip_reason:
                 result["status"] = "failed"
-                result["error"] = "Duplicate phone number (skipped)"
+                result["error"] = skip_reason
                 failed += 1
+                processed += 1
                 results.append(result)
-                yield f"data: {json.dumps({'type': 'progress', 'current': i + 1, 'total': total, 'sent': sent, 'failed': failed, 'last_phone': phone[-4:], 'last_status': 'skipped'})}\n\n"
-                continue
-            seen_phones.add(phone_stripped)
+                yield f"data: {json.dumps({'type': 'progress', 'current': processed, 'total': total, 'sent': sent, 'failed': failed, 'last_phone': phone[-4:], 'last_status': 'skipped'})}\n\n"
+            else:
+                seen_phones.add(phone_stripped)
+                to_send.append(result)
 
-            # Skip bad numbers
-            if phone_stripped in bad_numbers:
-                result["status"] = "failed"
-                result["error"] = "Opted out or previously failed (skipped)"
-                failed += 1
+        # Phase 2: Send in parallel with progress via queue
+        if to_send and not cancel_event.is_set():
+            from app.services.twilio_service import _SEND_CONCURRENCY
+            sem = asyncio.Semaphore(_SEND_CONCURRENCY)
+            progress_queue = asyncio.Queue()
+
+            async def _send_one(result_dict):
+                async with sem:
+                    if cancel_event.is_set():
+                        result_dict["status"] = "failed"
+                        result_dict["error"] = "Cancelled"
+                        await progress_queue.put(result_dict)
+                        return
+                    phone = result_dict["phone"]
+                    name = result_dict["name"]
+                    phone_stripped = phone.lstrip("+")
+                    try:
+                        sid = await send_sms(phone, message_template, name)
+                        await _mark_sent(phone_stripped)
+                        result_dict["status"] = "sent"
+                        result_dict["sid"] = sid
+                    except Exception as e:
+                        result_dict["status"] = "failed"
+                        result_dict["error"] = str(e)
+                    await progress_queue.put(result_dict)
+
+            tasks = [asyncio.create_task(_send_one(r)) for r in to_send]
+
+            for _ in range(len(to_send)):
+                result = await progress_queue.get()
                 results.append(result)
-                yield f"data: {json.dumps({'type': 'progress', 'current': i + 1, 'total': total, 'sent': sent, 'failed': failed, 'last_phone': phone[-4:], 'last_status': 'skipped'})}\n\n"
-                continue
+                if result["status"] == "sent":
+                    sent += 1
+                else:
+                    failed += 1
+                processed += 1
+                phone = result["phone"]
+                yield f"data: {json.dumps({'type': 'progress', 'current': processed, 'total': total, 'sent': sent, 'failed': failed, 'last_phone': phone[-4:], 'last_status': result['status']})}\n\n"
 
-            # Skip if sent to within last 30 minutes
-            if await _is_recently_sent(phone_stripped):
-                result["status"] = "failed"
-                result["error"] = "Already sent to within last 30 minutes (skipped)"
-                failed += 1
-                results.append(result)
-                yield f"data: {json.dumps({'type': 'progress', 'current': i + 1, 'total': total, 'sent': sent, 'failed': failed, 'last_phone': phone[-4:], 'last_status': 'skipped'})}\n\n"
-                continue
+                if cancel_event.is_set():
+                    remaining = total - processed
+                    yield f"data: {json.dumps({'type': 'cancelled', 'sent': sent, 'failed': failed, 'remaining': remaining})}\n\n"
+                    for t in tasks:
+                        t.cancel()
+                    _active_batches.pop(batch_id, None)
+                    return
 
-            # Send SMS
-            try:
-                sid = await send_sms(phone, message_template, name)
-                await _mark_sent(phone_stripped)
-                result["status"] = "sent"
-                result["sid"] = sid
-                sent += 1
-                last_status = "sent"
-            except Exception as e:
-                result["status"] = "failed"
-                result["error"] = str(e)
-                failed += 1
-                last_status = "failed"
+            await asyncio.gather(*tasks)
 
-            results.append(result)
-            yield f"data: {json.dumps({'type': 'progress', 'current': i + 1, 'total': total, 'sent': sent, 'failed': failed, 'last_phone': phone[-4:], 'last_status': last_status})}\n\n"
-
-        else:
-            # Loop completed without cancel
-            yield f"data: {json.dumps({'type': 'complete', 'sent': sent, 'failed': failed, 'total': total, 'results': results})}\n\n"
-
-        # Cleanup
+        yield f"data: {json.dumps({'type': 'complete', 'sent': sent, 'failed': failed, 'total': total, 'results': results})}\n\n"
         _active_batches.pop(batch_id, None)
         logger.info(f"Batch {batch_id}: sent={sent}, failed={failed}, total={total}")
 
@@ -530,3 +556,46 @@ async def cancel_batch(batch_id: str, _: bool = Depends(verify_pin)):
         raise HTTPException(status_code=404, detail="Batch not found or already completed")
     cancel_event.set()
     return {"cancelled": True}
+
+
+# --- Twilio Webhook ---
+
+
+@router.post("/twilio-webhook")
+async def twilio_webhook(
+    From: str = Form(...),
+    Body: str = Form(default=""),
+):
+    """
+    Twilio incoming message webhook.
+
+    Called by Twilio when an inbound SMS is received.
+    Records opt-outs (STOP, UNSUBSCRIBE, etc.) to Firestore instantly.
+
+    PUBLIC: No PIN required — Twilio calls this endpoint directly.
+    Configure in Twilio console → Messaging Service → Integration →
+    Incoming Messages → Send a webhook → https://your-domain/marketing/twilio-webhook
+    """
+    body_lower = Body.strip().lower()
+    phone_stripped = From.lstrip("+")
+
+    if body_lower in STOP_WORDS:
+        await add_opt_out(phone_stripped, reason="inbound_stop")
+        logger.info(f"Opt-out via webhook: {phone_stripped} sent '{Body.strip()}'")
+
+    # Return empty TwiML — Twilio expects XML response
+    return Response(content="<Response/>", media_type="text/xml")
+
+
+@router.post("/seed-opt-outs")
+async def seed_opt_outs_endpoint(_: bool = Depends(verify_pin)):
+    """
+    One-time migration: scan Twilio history and populate Firestore opt_outs.
+
+    Scans the last 10,000 messages for opt-outs and permanent failures,
+    then writes them to Firestore. Safe to run multiple times.
+
+    PROTECTED: Requires X-Marketing-Pin header.
+    """
+    count = await seed_opt_outs()
+    return {"seeded": count, "message": f"Seeded {count} opt-outs from Twilio history"}
