@@ -1,38 +1,40 @@
 /**
  * SmsCostEstimate - Real-time SMS cost estimation display
- * 
- * TWILIO SMS PRICING BREAKDOWN (USA, as of Jan 2025):
- * 
+ *
+ * TWILIO SMS PRICING BREAKDOWN (USA, verified from account usage Apr 2026):
+ *
  * 1. BASE RATE (Twilio fee per segment):
- *    - Long code / Toll-free / Short code: $0.0079 per segment
- *    - Source: https://www.twilio.com/en-us/sms/pricing/us
- * 
+ *    - $0.0083 per segment (outbound, US long code / A2P 10DLC)
+ *    - Source: Verified from actual Twilio usage log (19,459 segments = $161.51)
+ *
  * 2. CARRIER FEES (A2P 10DLC, per segment, passed through):
- *    - AT&T: $0.002/segment (registered)
- *    - T-Mobile: $0.003/segment (registered)
- *    - Verizon: $0.0025/segment
+ *    - Average across all carriers: ~$0.0039/segment
+ *    - Source: Verified from actual usage (18,609 segments = $71.89)
+ *    - AT&T: ~$0.003/segment
+ *    - T-Mobile: ~$0.003-$0.005/segment (increased Jan 2026)
+ *    - Verizon: ~$0.004-$0.005/segment
  *    - US Cellular: ~$0.002/segment
- *    - AVERAGE: ~$0.0025-$0.003/segment
- * 
- * 3. TOTAL ESTIMATED COST:
- *    Base ($0.0079) + Avg Carrier Fee ($0.003) = ~$0.0109/segment
- *    Rounded to $0.011 for display purposes
- * 
+ *
+ * 3. FAILED MESSAGE FEE:
+ *    - $0.001 per failed message (not per segment)
+ *
+ * 4. TOTAL ESTIMATED COST:
+ *    Base ($0.0083) + Avg Carrier Fee ($0.0039) = ~$0.0122/segment
+ *
  * NOTE: This is an ESTIMATE. Actual costs may vary based on:
  * - Carrier mix of recipients
- * - A2P 10DLC registration status
- * - Volume tier discounts
- * - Monthly campaign fees are NOT included
- * 
+ * - Monthly fees NOT included: phone number rental (~$1.15/mo),
+ *   A2P 10DLC campaign registration ($4-$15), brand registration ($4)
+ *
  * Segment rules:
  * - GSM-7 (standard ASCII): 160 chars single, 153 chars per segment when concatenated
  * - UCS-2 (emojis, special chars): 70 chars single, 67 chars per segment when concatenated
  */
 
-// Twilio SMS pricing breakdown
-const TWILIO_BASE_RATE = 0.0079;     // Twilio's base rate per segment
-const AVG_CARRIER_FEE = 0.003;       // Average A2P 10DLC carrier fee
-const COST_PER_SEGMENT = TWILIO_BASE_RATE + AVG_CARRIER_FEE; // ~$0.0109
+// Twilio SMS pricing (verified from account usage, Apr 2026)
+const TWILIO_BASE_RATE = 0.0083;     // Twilio's base rate per segment
+const AVG_CARRIER_FEE = 0.0039;      // Average A2P 10DLC carrier fee per segment
+const COST_PER_SEGMENT = TWILIO_BASE_RATE + AVG_CARRIER_FEE; // ~$0.0122
 
 // GSM-7 character set (standard SMS encoding)
 const GSM_7_CHARS = new Set(

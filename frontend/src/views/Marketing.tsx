@@ -18,6 +18,14 @@ import '../features/marketing/Marketing.css';
  * - Requires PIN authentication before accessing
  * - PIN is verified against backend and stored in sessionStorage
  */
+function Spinner() {
+    return (
+        <svg className="spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+        </svg>
+    );
+}
+
 export default function Marketing() {
     const {
         rows,
@@ -297,7 +305,7 @@ export default function Marketing() {
                                     onClick={fetchFromSheets}
                                     disabled={isFetchingSheets}
                                 >
-                                    {isFetchingSheets ? 'Loading recipients...' : 'Load Recipients'}
+                                    {isFetchingSheets ? <><Spinner /> Loading recipients...</> : 'Load Recipients'}
                                 </button>
                             </div>
                         )}
@@ -491,7 +499,7 @@ export default function Marketing() {
                                     disabled={!isReady || isSending}
                                 >
                                     {isSending
-                                        ? `Sending to ${counts.included} recipients...`
+                                        ? <><Spinner /> Sending to {counts.included} recipients...</>
                                         : `Send to ${counts.included} recipient${counts.included !== 1 ? 's' : ''}`
                                     }
                                 </button>
@@ -559,7 +567,7 @@ export default function Marketing() {
                                     onClick={handleSingleSend}
                                     disabled={!singleIsValid || singleSending}
                                 >
-                                    {singleSending ? 'Sending...' : 'Send SMS'}
+                                    {singleSending ? <><Spinner /> Sending...</> : 'Send SMS'}
                                 </button>
                             </div>
                         </div>
