@@ -117,6 +117,10 @@ app.include_router(marketing_router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
+    from fastapi import HTTPException
+    # Let FastAPI handle its own HTTPExceptions normally
+    if isinstance(exc, HTTPException):
+        raise exc
     logger.exception(f"Unhandled exception: {exc}")
     return JSONResponse(
         status_code=500,
@@ -142,9 +146,9 @@ if os.path.isdir(STATIC_DIR):
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        if full_path.startswith(("marketing", "health", "docs", "openapi")):
+        if full_path.startswith(("marketing", "health", "docs", "openapi", "assets")):
             from fastapi import HTTPException
-            raise HTTPException(status_code=404, detail="API route not found")
+            raise HTTPException(status_code=404, detail="Not found")
 
         index_path = os.path.join(STATIC_DIR, "index.html")
         if os.path.exists(index_path):
