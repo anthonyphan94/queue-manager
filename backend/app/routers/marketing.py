@@ -482,7 +482,7 @@ async def send_batch_stream(request: Request, body: BatchSmsRequest, _: bool = D
                 continue
 
             # Skip if sent to within last 30 minutes
-            if _is_recently_sent(phone_stripped):
+            if await _is_recently_sent(phone_stripped):
                 result["status"] = "failed"
                 result["error"] = "Already sent to within last 30 minutes (skipped)"
                 failed += 1
@@ -493,7 +493,7 @@ async def send_batch_stream(request: Request, body: BatchSmsRequest, _: bool = D
             # Send SMS
             try:
                 sid = await send_sms(phone, message_template, name)
-                _mark_sent(phone_stripped)
+                await _mark_sent(phone_stripped)
                 result["status"] = "sent"
                 result["sid"] = sid
                 sent += 1

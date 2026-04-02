@@ -35,32 +35,49 @@ _bad_cache = {
     "last_date": None,
 }
 
-# --- Recently Sent Tracker (30-min dedup window) ---
+# --- Recently Sent Tracker (30-min dedup, Firestore-backed) ---
 
 _DEDUP_TTL = 1800  # 30 minutes
-
-# Maps phone number (stripped) -> timestamp of last send
-_recently_sent: dict[str, float] = {}
+_SENT_LOG_COLLECTION = "sent_log"
 
 
-def _is_recently_sent(phone_stripped: str) -> bool:
-    """Check if this number was sent to within the dedup window."""
-    last_sent = _recently_sent.get(phone_stripped)
-    if last_sent is None:
+async def _is_recently_sent(phone_stripped: str) -> bool:
+    """Check Firestore if this number was sent to within the dedup window."""
+    from app.database import _get_db
+    db = _get_db()
+    if not db:
         return False
-    return (time.time() - last_sent) < _DEDUP_TTL
+
+    try:
+        doc = await db.collection(_SENT_LOG_COLLECTION).document(phone_stripped).get()
+        if not doc.exists:
+            return False
+        data = doc.to_dict()
+        sent_at = data.get("sent_at")
+        if sent_at is None:
+            return False
+        # Firestore timestamps are datetime objects
+        if hasattr(sent_at, 'timestamp'):
+            return (time.time() - sent_at.timestamp()) < _DEDUP_TTL
+        return False
+    except Exception as e:
+        logger.warning(f"Dedup check failed for {phone_stripped}: {e}")
+        return False
 
 
-def _mark_sent(phone_stripped: str) -> None:
-    """Record that a message was sent to this number."""
-    now = time.time()
-    _recently_sent[phone_stripped] = now
-    # Purge expired entries periodically (every 100 sends)
-    if len(_recently_sent) % 100 == 0:
-        cutoff = now - _DEDUP_TTL
-        expired = [k for k, v in _recently_sent.items() if v < cutoff]
-        for k in expired:
-            del _recently_sent[k]
+async def _mark_sent(phone_stripped: str) -> None:
+    """Record in Firestore that a message was sent to this number."""
+    from app.database import _get_db, firestore
+    db = _get_db()
+    if not db or not firestore:
+        return
+
+    try:
+        await db.collection(_SENT_LOG_COLLECTION).document(phone_stripped).set({
+            "sent_at": firestore.SERVER_TIMESTAMP,
+        })
+    except Exception as e:
+        logger.warning(f"Dedup mark failed for {phone_stripped}: {e}")
 
 
 # --- Twilio Client Singleton ---
@@ -342,7 +359,7 @@ async def send_batch_sms(
             continue
 
         # Skip if sent to within last 30 minutes
-        if _is_recently_sent(phone_stripped):
+        if await _is_recently_sent(phone_stripped):
             result["status"] = "failed"
             result["error"] = "Already sent to within last 30 minutes (skipped)"
             results.append(result)
@@ -350,7 +367,7 @@ async def send_batch_sms(
 
         try:
             sid = await send_sms(phone, message_template, name)
-            _mark_sent(phone_stripped)
+            await _mark_sent(phone_stripped)
             result["status"] = "sent"
             result["sid"] = sid
         except ValueError as e:
