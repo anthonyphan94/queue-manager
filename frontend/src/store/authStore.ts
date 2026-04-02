@@ -1,12 +1,43 @@
 import { create } from 'zustand';
 import { API_BASE } from '../utils/api';
 
+const AUTH_KEY = 'marketing_auth';
+const SESSION_TTL = 2 * 60 * 60 * 1000; // 2 hours in ms
+
 /**
  * Auth store for Marketing module PIN authentication.
  *
- * PIN is kept only in Zustand memory (not persisted to sessionStorage).
- * Page refresh requires re-entering the PIN — this is intentional for security.
+ * PIN + expiry stored in sessionStorage. Session lasts 2 hours
+ * or until the browser is closed (whichever comes first).
  */
+
+function saveSession(pin: string) {
+    sessionStorage.setItem(AUTH_KEY, JSON.stringify({
+        pin,
+        expires: Date.now() + SESSION_TTL,
+    }));
+}
+
+function loadSession(): string | null {
+    try {
+        const raw = sessionStorage.getItem(AUTH_KEY);
+        if (!raw) return null;
+        const { pin, expires } = JSON.parse(raw);
+        if (Date.now() > expires) {
+            sessionStorage.removeItem(AUTH_KEY);
+            return null;
+        }
+        return pin;
+    } catch {
+        sessionStorage.removeItem(AUTH_KEY);
+        return null;
+    }
+}
+
+function clearSession() {
+    sessionStorage.removeItem(AUTH_KEY);
+}
+
 interface ChangePinResult {
     success: boolean;
     message: string;
@@ -18,7 +49,6 @@ interface AuthState {
     isVerifying: boolean;
     error: string | null;
 
-    // Actions
     verifyPin: (pin: string) => Promise<boolean>;
     changePin: (currentPin: string, newPin: string) => Promise<ChangePinResult>;
     logout: () => void;
@@ -45,6 +75,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const data = await response.json();
 
             if (data.valid) {
+                saveSession(pin);
                 set({ isAuthenticated: true, pin, isVerifying: false, error: null });
                 return true;
             } else {
@@ -68,6 +99,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const data = await response.json();
 
             if (data.success) {
+                saveSession(newPin);
                 set({ pin: newPin });
             }
 
@@ -78,12 +110,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     logout: () => {
+        clearSession();
         set({ isAuthenticated: false, pin: null, error: null });
     },
 
     checkStoredAuth: () => {
-        // PIN is only kept in memory. Page refresh requires re-authentication.
-        // This is intentional for security.
+        const storedPin = loadSession();
+        if (storedPin) {
+            set({ isAuthenticated: true, pin: storedPin });
+        }
     },
 
     getAuthHeader: () => {
