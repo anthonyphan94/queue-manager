@@ -77,7 +77,7 @@ class SingleSmsRequest(BaseModel):
 
 class BatchSmsRequest(BaseModel):
     """Request body for sending batch SMS."""
-    recipients: list[Contact] = Field(..., min_items=1, max_items=500, description="List of recipients (max 500)")
+    recipients: list[Contact] = Field(..., min_items=1, description="List of recipients")
     message: str = Field(..., min_length=1, max_length=1600, description="Message template")
 
 
