@@ -31,6 +31,8 @@ from app.services.twilio_service import (
     send_sms,
     send_batch_sms,
     fetch_bad_numbers,
+    _is_recently_sent,
+    _mark_sent,
 )
 from app.services.sheets_service import fetch_phone_numbers
 from app.auth import verify_pin, verify_pin_endpoint, change_pin
@@ -479,9 +481,19 @@ async def send_batch_stream(request: Request, body: BatchSmsRequest, _: bool = D
                 yield f"data: {json.dumps({'type': 'progress', 'current': i + 1, 'total': total, 'sent': sent, 'failed': failed, 'last_phone': phone[-4:], 'last_status': 'skipped'})}\n\n"
                 continue
 
+            # Skip if sent to within last 30 minutes
+            if _is_recently_sent(phone_stripped):
+                result["status"] = "failed"
+                result["error"] = "Already sent to within last 30 minutes (skipped)"
+                failed += 1
+                results.append(result)
+                yield f"data: {json.dumps({'type': 'progress', 'current': i + 1, 'total': total, 'sent': sent, 'failed': failed, 'last_phone': phone[-4:], 'last_status': 'skipped'})}\n\n"
+                continue
+
             # Send SMS
             try:
                 sid = await send_sms(phone, message_template, name)
+                _mark_sent(phone_stripped)
                 result["status"] = "sent"
                 result["sid"] = sid
                 sent += 1

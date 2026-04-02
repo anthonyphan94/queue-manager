@@ -35,6 +35,34 @@ _bad_cache = {
     "last_date": None,
 }
 
+# --- Recently Sent Tracker (30-min dedup window) ---
+
+_DEDUP_TTL = 1800  # 30 minutes
+
+# Maps phone number (stripped) -> timestamp of last send
+_recently_sent: dict[str, float] = {}
+
+
+def _is_recently_sent(phone_stripped: str) -> bool:
+    """Check if this number was sent to within the dedup window."""
+    last_sent = _recently_sent.get(phone_stripped)
+    if last_sent is None:
+        return False
+    return (time.time() - last_sent) < _DEDUP_TTL
+
+
+def _mark_sent(phone_stripped: str) -> None:
+    """Record that a message was sent to this number."""
+    now = time.time()
+    _recently_sent[phone_stripped] = now
+    # Purge expired entries periodically (every 100 sends)
+    if len(_recently_sent) % 100 == 0:
+        cutoff = now - _DEDUP_TTL
+        expired = [k for k, v in _recently_sent.items() if v < cutoff]
+        for k in expired:
+            del _recently_sent[k]
+
+
 # --- Twilio Client Singleton ---
 
 _twilio_client: Optional[Client] = None
@@ -313,8 +341,16 @@ async def send_batch_sms(
             results.append(result)
             continue
 
+        # Skip if sent to within last 30 minutes
+        if _is_recently_sent(phone_stripped):
+            result["status"] = "failed"
+            result["error"] = "Already sent to within last 30 minutes (skipped)"
+            results.append(result)
+            continue
+
         try:
             sid = await send_sms(phone, message_template, name)
+            _mark_sent(phone_stripped)
             result["status"] = "sent"
             result["sid"] = sid
         except ValueError as e:
