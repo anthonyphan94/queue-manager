@@ -5,14 +5,16 @@ PIN-based authentication with bcrypt hashing.
 PIN is stored in Firestore settings collection.
 """
 
+import hmac
 import os
 import bcrypt
 from fastapi import HTTPException, Header
 
 from app.settings_db import get_marketing_pin_hash, set_marketing_pin_hash
 
-# Fallback PIN for development when Firestore is unavailable
-DEFAULT_DEV_PIN = os.getenv("MARKETING_PIN", "0112")
+# Fallback PIN for development when Firestore is unavailable.
+# No hardcoded default — must be explicitly set via env var.
+DEFAULT_DEV_PIN = os.getenv("MARKETING_PIN")
 
 
 async def verify_pin(x_marketing_pin: str = Header(None, alias="X-Marketing-Pin")):
@@ -40,7 +42,12 @@ async def verify_pin(x_marketing_pin: str = Header(None, alias="X-Marketing-Pin"
         raise HTTPException(status_code=403, detail="Invalid PIN.")
     else:
         # Fallback to env var for development/first-time setup
-        if x_marketing_pin == DEFAULT_DEV_PIN:
+        if not DEFAULT_DEV_PIN:
+            raise HTTPException(
+                status_code=500,
+                detail="PIN not configured. Set MARKETING_PIN env var or configure via Firestore.",
+            )
+        if hmac.compare_digest(x_marketing_pin, DEFAULT_DEV_PIN):
             return True
         raise HTTPException(status_code=403, detail="Invalid PIN.")
 
@@ -58,7 +65,9 @@ async def verify_pin_endpoint(pin: str) -> bool:
         return bcrypt.checkpw(pin.encode('utf-8'), stored_hash.encode('utf-8'))
     else:
         # Fallback to env var for development/first-time setup
-        return pin == DEFAULT_DEV_PIN
+        if not DEFAULT_DEV_PIN:
+            return False
+        return hmac.compare_digest(pin, DEFAULT_DEV_PIN)
 
 
 async def change_pin(current_pin: str, new_pin: str) -> tuple[bool, str]:

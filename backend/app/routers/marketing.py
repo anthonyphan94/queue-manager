@@ -17,8 +17,10 @@ from datetime import datetime
 from typing import Optional
 
 import pandas as pd
-from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
+from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, Request
 from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.services.twilio_service import (
     clean_phone_number,
@@ -31,6 +33,7 @@ from app.auth import verify_pin, verify_pin_endpoint, change_pin
 
 logger = logging.getLogger(__name__)
 
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/marketing", tags=["marketing"])
 
 
@@ -61,20 +64,20 @@ class ChangePinResponse(BaseModel):
 
 class Contact(BaseModel):
     """A single contact from CSV or manual entry."""
-    name: str = Field(..., min_length=1, description="Customer name")
+    name: str = Field(..., min_length=1, max_length=100, description="Customer name")
     phone: str = Field(..., min_length=10, description="Phone number")
 
 
 class SingleSmsRequest(BaseModel):
     """Request body for sending a single SMS."""
-    name: str = Field(..., min_length=1, description="Customer name")
+    name: str = Field(..., min_length=1, max_length=100, description="Customer name")
     phone: str = Field(..., min_length=10, description="Phone number")
     message: str = Field(..., min_length=1, max_length=1600, description="Message content")
 
 
 class BatchSmsRequest(BaseModel):
     """Request body for sending batch SMS."""
-    recipients: list[Contact] = Field(..., min_items=1, description="List of recipients")
+    recipients: list[Contact] = Field(..., min_items=1, max_items=500, description="List of recipients (max 500)")
     message: str = Field(..., min_length=1, max_length=1600, description="Message template")
 
 
@@ -190,43 +193,44 @@ def parse_csv_file(file_content: bytes) -> PreviewResponse:
 # --- Endpoints ---
 
 @router.post("/verify-pin", response_model=VerifyPinResponse)
-async def verify_pin_route(request: VerifyPinRequest):
+@limiter.limit("5/minute")
+async def verify_pin_route(request: Request, body: VerifyPinRequest):
     """
     Verify the marketing PIN.
 
-    Returns whether the provided PIN is valid.
-    This is a public endpoint - no authentication required.
+    Rate limited to 5 attempts per minute per IP.
     """
-    is_valid = await verify_pin_endpoint(request.pin)
+    is_valid = await verify_pin_endpoint(body.pin)
 
     if is_valid:
         logger.info("Marketing PIN verified successfully")
         return VerifyPinResponse(valid=True, message="PIN verified successfully")
     else:
-        logger.warning("Invalid marketing PIN attempt")
+        logger.warning(f"Invalid marketing PIN attempt from {request.client.host}")
         return VerifyPinResponse(valid=False, message="Invalid PIN")
 
 
 @router.post("/change-pin", response_model=ChangePinResponse)
-async def change_pin_route(request: ChangePinRequest):
+@limiter.limit("3/minute")
+async def change_pin_route(request: Request, body: ChangePinRequest):
     """
     Change the marketing PIN.
 
     Requires current PIN for verification.
-    New PIN must be 4-20 characters.
+    Rate limited to 3 attempts per minute per IP.
     """
-    success, message = await change_pin(request.current_pin, request.new_pin)
+    success, message = await change_pin(body.current_pin, body.new_pin)
 
     if success:
         logger.info("Marketing PIN changed successfully")
     else:
-        logger.warning(f"Failed to change marketing PIN: {message}")
+        logger.warning(f"Failed to change marketing PIN from {request.client.host}")
 
     return ChangePinResponse(success=success, message=message)
 
 
 @router.post("/preview-csv", response_model=PreviewResponse)
-async def preview_csv(file: UploadFile = File(...)):
+async def preview_csv(file: UploadFile = File(...), _: bool = Depends(verify_pin)):
     """
     Upload and parse a CSV file, returning a preview of contacts.
     
@@ -276,10 +280,8 @@ async def prepare_recipients(_: bool = Depends(verify_pin)):
         raw_contacts = fetch_phone_numbers()
         logger.info(f"[prepare] Step 1 done: {len(raw_contacts)} raw contacts fetched")
     except Exception as e:
-        import traceback
-        tb = traceback.format_exc()
-        logger.error(f"[prepare] Step 1 FAILED: {type(e).__name__}: {e}\n{tb}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch from Google Sheets: {type(e).__name__}: {e}")
+        logger.error(f"[prepare] Step 1 FAILED: {type(e).__name__}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch from Google Sheets. Please try again.")
 
     # Step 2: Fetch bad numbers from Twilio history
     try:

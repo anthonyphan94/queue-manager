@@ -33,6 +33,10 @@ COPY --from=frontend-build /app/frontend/dist /app/static
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 
+# Security: run as non-root user
+RUN useradd --create-home --shell /bin/bash appuser
+USER appuser
+
 # Run the application
 # We use python main.py to leverage the port configuration logic in the script
 CMD ["python", "main.py"]

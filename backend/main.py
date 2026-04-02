@@ -12,10 +12,15 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
 
 from app.routers import marketing_router
+from app.routers.marketing import limiter
 
 # Load environment variables from .env file
 load_dotenv()
@@ -57,6 +62,19 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# --- Security Headers Middleware ---
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: StarletteRequest, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        if IS_PRODUCTION:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+
 # --- App Setup ---
 
 app = FastAPI(
@@ -66,21 +84,44 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS configuration
-allowed_origins = ["*"] if not IS_PRODUCTION else [
-    "https://*.run.app",
-]
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS — in production, SPA and API share the same origin so CORS is not needed.
+# In development, allow Vite dev server and backend.
+allowed_origins = (
+    ["http://localhost:5173", "http://localhost:8080"]
+    if not IS_PRODUCTION
+    else [os.getenv("CORS_ORIGIN", "")]
+)
+# Filter out empty strings
+allowed_origins = [o for o in allowed_origins if o]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Marketing-Pin"],
 )
+
+# Security headers
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Include routers
 app.include_router(marketing_router)
+
+
+# --- Global Exception Handler ---
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    logger.exception(f"Unhandled exception: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 
 # --- Health Check ---

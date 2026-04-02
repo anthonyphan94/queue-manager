@@ -1,12 +1,11 @@
 import { create } from 'zustand';
 import { API_BASE } from '../utils/api';
 
-const AUTH_KEY = 'marketing_authenticated';
-
 /**
  * Auth store for Marketing module PIN authentication.
- * 
- * Stores PIN in sessionStorage (cleared when browser closes).
+ *
+ * PIN is kept only in Zustand memory (not persisted to sessionStorage).
+ * Page refresh requires re-entering the PIN — this is intentional for security.
  */
 interface ChangePinResult {
     success: boolean;
@@ -46,8 +45,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const data = await response.json();
 
             if (data.valid) {
-                // Store in sessionStorage (cleared when browser closes)
-                sessionStorage.setItem(AUTH_KEY, pin);
                 set({ isAuthenticated: true, pin, isVerifying: false, error: null });
                 return true;
             } else {
@@ -71,8 +68,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const data = await response.json();
 
             if (data.success) {
-                // Update stored PIN to the new one
-                sessionStorage.setItem(AUTH_KEY, newPin);
                 set({ pin: newPin });
             }
 
@@ -83,15 +78,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     logout: () => {
-        sessionStorage.removeItem(AUTH_KEY);
         set({ isAuthenticated: false, pin: null, error: null });
     },
 
     checkStoredAuth: () => {
-        const storedPin = sessionStorage.getItem(AUTH_KEY);
-        if (storedPin) {
-            set({ isAuthenticated: true, pin: storedPin });
-        }
+        // PIN is only kept in memory. Page refresh requires re-authentication.
+        // This is intentional for security.
     },
 
     getAuthHeader: () => {
