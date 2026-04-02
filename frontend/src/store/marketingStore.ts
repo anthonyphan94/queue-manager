@@ -1,5 +1,28 @@
 import { create } from 'zustand';
 
+// --- localStorage persistence helpers ---
+const STORAGE_KEY = 'marketing_data';
+
+function saveToStorage(rows: Row[], messageDraft: string) {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ rows, messageDraft }));
+    } catch { /* storage full or unavailable */ }
+}
+
+function loadFromStorage(): { rows: Row[]; messageDraft: string } | null {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (Array.isArray(data.rows)) return data;
+    } catch { /* corrupt data */ }
+    return null;
+}
+
+function clearStorage() {
+    localStorage.removeItem(STORAGE_KEY);
+}
+
 // ============================================
 // DATA MODEL - Mail-Style CSV Import
 // ============================================
@@ -117,8 +140,8 @@ interface MarketingState {
  * Marketing Store - Mail-Style Implementation
  */
 export const useMarketingStore = create<MarketingState>((set, get) => ({
-    // === ROW STATE ===
-    rows: [],
+    // === ROW STATE (restored from localStorage if available) ===
+    rows: loadFromStorage()?.rows ?? [],
 
     // === INCLUSION STATE ===
     includedIds: new Set(),
@@ -133,9 +156,12 @@ export const useMarketingStore = create<MarketingState>((set, get) => ({
     isSending: false,
     sendResults: [],
 
-    // === MESSAGE STATE ===
-    messageDraft: '',
-    setMessageDraft: (message) => set({ messageDraft: message }),
+    // === MESSAGE STATE (restored from localStorage if available) ===
+    messageDraft: loadFromStorage()?.messageDraft ?? '',
+    setMessageDraft: (message) => {
+        set({ messageDraft: message });
+        saveToStorage(get().rows, message);
+    },
 
     // === ERROR STATE ===
     error: null,
@@ -167,13 +193,13 @@ export const useMarketingStore = create<MarketingState>((set, get) => ({
     setImportData: (rows) => {
         set({
             rows,
-            // Start with nothing included - user must explicitly include
             includedIds: new Set(),
             sendResults: [],
             error: null,
             lastRemoved: null,
             toast: null,
         });
+        saveToStorage(rows, get().messageDraft);
     },
 
     clearAllData: () => {
@@ -184,7 +210,9 @@ export const useMarketingStore = create<MarketingState>((set, get) => ({
             error: null,
             lastRemoved: null,
             toast: null,
+            messageDraft: '',
         });
+        clearStorage();
     },
 
     // === INCLUSION ACTIONS ===
@@ -241,6 +269,7 @@ export const useMarketingStore = create<MarketingState>((set, get) => ({
             lastRemoved: snapshot,
             toast: { message: 'Removed 1 recipient', showUndo: true },
         });
+        saveToStorage(newRows, get().messageDraft);
 
         // Auto-dismiss toast after 6 seconds
         setTimeout(() => {
@@ -284,6 +313,7 @@ export const useMarketingStore = create<MarketingState>((set, get) => ({
             lastRemoved: snapshot,
             toast: { message: `Removed ${count} recipient${count !== 1 ? 's' : ''}`, showUndo: true },
         });
+        saveToStorage(newRows, get().messageDraft);
 
         // Auto-dismiss toast after 6 seconds
         setTimeout(() => {
@@ -319,6 +349,7 @@ export const useMarketingStore = create<MarketingState>((set, get) => ({
             lastRemoved: null,
             toast: null,
         });
+        saveToStorage(newRows, get().messageDraft);
     },
 
     // === TOAST ACTIONS ===
