@@ -11,13 +11,17 @@ AUTHENTICATION:
 - /send-batch: Protected (requires PIN header)
 """
 
+import asyncio
 import io
+import json
 import logging
+import uuid
 from datetime import datetime
 from typing import Optional
 
 import pandas as pd
 from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -404,3 +408,113 @@ async def send_batch(request: BatchSmsRequest, _: bool = Depends(verify_pin)):
     except Exception as e:
         logger.exception(f"Batch SMS error: {e}")
         raise HTTPException(status_code=500, detail="Failed to process batch SMS request")
+
+
+# --- Streaming Batch Send with Progress ---
+
+_active_batches: dict[str, asyncio.Event] = {}
+
+
+@router.post("/send-batch-stream")
+async def send_batch_stream(request: Request, body: BatchSmsRequest, _: bool = Depends(verify_pin)):
+    """
+    Send SMS messages with real-time progress via Server-Sent Events.
+
+    Returns an SSE stream with events:
+    - {type: "start", batch_id, total}
+    - {type: "progress", current, total, sent, failed, last_phone, last_status}
+    - {type: "complete", sent, failed, total, results}
+    - {type: "cancelled", sent, failed, remaining}
+
+    PROTECTED: Requires X-Marketing-Pin header.
+    """
+    recipients = [{"name": c.name, "phone": c.phone} for c in body.recipients]
+    message_template = body.message
+    batch_id = str(uuid.uuid4())
+
+    cancel_event = asyncio.Event()
+    _active_batches[batch_id] = cancel_event
+
+    # Fetch bad numbers once before streaming
+    try:
+        bad_numbers = fetch_bad_numbers()
+    except Exception:
+        bad_numbers = set()
+
+    async def event_generator():
+        total = len(recipients)
+        sent = 0
+        failed = 0
+        results = []
+        seen_phones = set()
+
+        yield f"data: {json.dumps({'type': 'start', 'batch_id': batch_id, 'total': total})}\n\n"
+
+        for i, recipient in enumerate(recipients):
+            if cancel_event.is_set():
+                yield f"data: {json.dumps({'type': 'cancelled', 'sent': sent, 'failed': failed, 'remaining': total - i})}\n\n"
+                break
+
+            name = recipient.get("name", "")
+            phone = recipient.get("phone", "")
+            phone_stripped = phone.lstrip("+")
+            result = {"name": name, "phone": phone, "status": "pending"}
+
+            # Skip duplicates
+            if phone_stripped in seen_phones:
+                result["status"] = "failed"
+                result["error"] = "Duplicate phone number (skipped)"
+                failed += 1
+                results.append(result)
+                yield f"data: {json.dumps({'type': 'progress', 'current': i + 1, 'total': total, 'sent': sent, 'failed': failed, 'last_phone': phone[-4:], 'last_status': 'skipped'})}\n\n"
+                continue
+            seen_phones.add(phone_stripped)
+
+            # Skip bad numbers
+            if phone_stripped in bad_numbers:
+                result["status"] = "failed"
+                result["error"] = "Opted out or previously failed (skipped)"
+                failed += 1
+                results.append(result)
+                yield f"data: {json.dumps({'type': 'progress', 'current': i + 1, 'total': total, 'sent': sent, 'failed': failed, 'last_phone': phone[-4:], 'last_status': 'skipped'})}\n\n"
+                continue
+
+            # Send SMS
+            try:
+                sid = await send_sms(phone, message_template, name)
+                result["status"] = "sent"
+                result["sid"] = sid
+                sent += 1
+                last_status = "sent"
+            except Exception as e:
+                result["status"] = "failed"
+                result["error"] = str(e)
+                failed += 1
+                last_status = "failed"
+
+            results.append(result)
+            yield f"data: {json.dumps({'type': 'progress', 'current': i + 1, 'total': total, 'sent': sent, 'failed': failed, 'last_phone': phone[-4:], 'last_status': last_status})}\n\n"
+
+        else:
+            # Loop completed without cancel
+            yield f"data: {json.dumps({'type': 'complete', 'sent': sent, 'failed': failed, 'total': total, 'results': results})}\n\n"
+
+        # Cleanup
+        _active_batches.pop(batch_id, None)
+        logger.info(f"Batch {batch_id}: sent={sent}, failed={failed}, total={total}")
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.post("/cancel-batch/{batch_id}")
+async def cancel_batch(batch_id: str, _: bool = Depends(verify_pin)):
+    """Cancel a running batch send."""
+    cancel_event = _active_batches.get(batch_id)
+    if not cancel_event:
+        raise HTTPException(status_code=404, detail="Batch not found or already completed")
+    cancel_event.set()
+    return {"cancelled": True}

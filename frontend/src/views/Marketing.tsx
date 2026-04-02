@@ -70,6 +70,17 @@ export default function Marketing() {
     const [singleSuccess, setSingleSuccess] = useState<string | null>(null);
     const [singleError, setSingleError] = useState<string | null>(null);
 
+    // Batch progress state
+    const [batchId, setBatchId] = useState<string | null>(null);
+    const [progress, setProgress] = useState<{
+        current: number;
+        total: number;
+        sent: number;
+        failed: number;
+        lastPhone: string;
+        lastStatus: string;
+    } | null>(null);
+
     // Check for stored auth on mount
     useEffect(() => {
         checkStoredAuth();
@@ -156,17 +167,19 @@ export default function Marketing() {
         }
     };
 
-    // === BROADCAST HANDLER ===
+    // === BROADCAST HANDLER (SSE streaming) ===
     const handleBroadcast = async () => {
         const includedRows = getIncludedRows();
         if (includedRows.length === 0 || !messageDraft.trim()) return;
 
         setSending(true);
         setError(null);
+        setProgress(null);
+        setBatchId(null);
 
         try {
             const authHeader = useAuthStore.getState().getAuthHeader();
-            const response = await fetch(`${API_BASE}/marketing/send-batch`, {
+            const response = await fetch(`${API_BASE}/marketing/send-batch-stream`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeader },
                 body: JSON.stringify({
@@ -175,12 +188,71 @@ export default function Marketing() {
                 }),
             });
 
-            const data = await response.json();
-            setSendResults(data.results);
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({ detail: 'Send failed' }));
+                throw new Error(err.detail || 'Send failed');
+            }
+
+            const reader = response.body?.getReader();
+            if (!reader) throw new Error('Streaming not supported');
+
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const event = JSON.parse(line.slice(6));
+
+                        if (event.type === 'start') {
+                            setBatchId(event.batch_id);
+                            setProgress({ current: 0, total: event.total, sent: 0, failed: 0, lastPhone: '', lastStatus: '' });
+                        } else if (event.type === 'progress') {
+                            setProgress({
+                                current: event.current,
+                                total: event.total,
+                                sent: event.sent,
+                                failed: event.failed,
+                                lastPhone: event.last_phone,
+                                lastStatus: event.last_status,
+                            });
+                        } else if (event.type === 'complete') {
+                            setSendResults(event.results);
+                            setProgress(null);
+                            setBatchId(null);
+                        } else if (event.type === 'cancelled') {
+                            setError(`Cancelled. Sent: ${event.sent}, Failed: ${event.failed}, Remaining: ${event.remaining}`);
+                            setProgress(null);
+                            setBatchId(null);
+                        }
+                    } catch { /* skip malformed events */ }
+                }
+            }
         } catch (err) {
-            setError('Network error. Please check your connection.');
+            setError(err instanceof Error ? err.message : 'Network error. Please check your connection.');
+        } finally {
             setSending(false);
         }
+    };
+
+    // === CANCEL HANDLER ===
+    const handleCancel = async () => {
+        if (!batchId) return;
+        try {
+            const authHeader = useAuthStore.getState().getAuthHeader();
+            await fetch(`${API_BASE}/marketing/cancel-batch/${batchId}`, {
+                method: 'POST',
+                headers: { ...authHeader },
+            });
+        } catch { /* best effort */ }
     };
 
     // === JUMP TO ROW HANDLER ===
@@ -493,18 +565,55 @@ export default function Marketing() {
                                     <SmsCostEstimate message={messageDraft} recipientCount={counts.included || 1} />
                                 </div>
 
-                                <button
-                                    className="btn-primary broadcast-btn"
-                                    onClick={() => setShowSendConfirm(true)}
-                                    disabled={!isReady || isSending}
-                                >
-                                    {isSending
-                                        ? <><Spinner /> Sending to {counts.included} recipients...</>
-                                        : `Send to ${counts.included} recipient${counts.included !== 1 ? 's' : ''}`
-                                    }
-                                </button>
+                                {/* Progress bar during sending */}
+                                {isSending && progress && (
+                                    <div className="send-progress">
+                                        <div className="progress-header">
+                                            <span className="progress-label">
+                                                Sending {progress.current} of {progress.total}
+                                            </span>
+                                            <span className="progress-percent">
+                                                {Math.round((progress.current / progress.total) * 100)}%
+                                            </span>
+                                        </div>
+                                        <div className="progress-bar-track">
+                                            <div
+                                                className="progress-bar-fill"
+                                                style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                                            />
+                                        </div>
+                                        <div className="progress-stats">
+                                            <span className="progress-sent">{progress.sent} sent</span>
+                                            <span className="progress-divider">/</span>
+                                            <span className="progress-failed">{progress.failed} failed</span>
+                                            {progress.lastPhone && (
+                                                <span className="progress-last">
+                                                    Last: ...{progress.lastPhone} ({progress.lastStatus})
+                                                </span>
+                                            )}
+                                        </div>
+                                        <button
+                                            className="btn-danger cancel-btn"
+                                            onClick={handleCancel}
+                                            type="button"
+                                        >
+                                            Cancel Send
+                                        </button>
+                                    </div>
+                                )}
 
-                                {!hasData && (
+                                {/* Send button (hidden during sending) */}
+                                {!isSending && (
+                                    <button
+                                        className="btn-primary broadcast-btn"
+                                        onClick={() => setShowSendConfirm(true)}
+                                        disabled={!isReady}
+                                    >
+                                        Send to {counts.included} recipient{counts.included !== 1 ? 's' : ''}
+                                    </button>
+                                )}
+
+                                {!hasData && !isSending && (
                                     <p className="composer-hint">Load recipients to enable broadcasting.</p>
                                 )}
                             </div>
