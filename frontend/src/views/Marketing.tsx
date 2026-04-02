@@ -330,8 +330,8 @@ export default function Marketing() {
 
             {/* === HEADER === */}
             <header className="marketing-header">
-                <h1>SMS Marketing</h1>
-                <p className="subtitle">Send promotional messages to your customers</p>
+                <h1 className="font-brand">Marilyn Beauty Lounge</h1>
+                <p className="subtitle">SMS Marketing Dashboard</p>
             </header>
 
             {/* === RESULTS VIEW (full width, replaces everything) === */}

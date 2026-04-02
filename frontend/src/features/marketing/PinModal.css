@@ -3,12 +3,18 @@
 .pin-modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(15, 23, 42, 0.6);
     backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 100;
+    animation: pin-backdrop-fade 0.3s ease;
+}
+
+@keyframes pin-backdrop-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .pin-modal {
@@ -19,11 +25,22 @@
     width: 90%;
     text-align: center;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: pin-modal-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.pin-modal-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
+@keyframes pin-modal-enter {
+    from {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.pin-modal-brand {
+    margin-bottom: 0.25rem;
 }
 
 .pin-modal-title {
@@ -31,6 +48,7 @@
     font-size: 1.5rem;
     font-weight: 700;
     color: #1e293b;
+    letter-spacing: 0.1em;
 }
 
 .pin-modal-subtitle {
@@ -57,7 +75,7 @@
     font-weight: 700;
     text-align: center;
     color: #1e293b;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     -webkit-text-security: disc;
     /* Hide PIN digits */
 }
@@ -82,6 +100,18 @@
     border: 1px solid #fecaca;
     color: #dc2626;
     font-size: 0.9rem;
+    animation: pin-error-enter 0.3s ease;
+}
+
+@keyframes pin-error-enter {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Submit Button */
@@ -95,12 +125,13 @@
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.25s ease;
     min-height: 52px;
 }
 
 .pin-submit-btn:hover:not(:disabled) {
     background: #be123c;
+    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
 }
 
 .pin-submit-btn:disabled {
@@ -115,9 +146,22 @@
     color: #64748b;
     text-decoration: none;
     font-size: 0.9rem;
-    transition: color 0.15s ease;
+    transition: color 0.2s ease;
 }
 
 .pin-back-link:hover {
     color: #e11d48;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .pin-modal-backdrop {
+        animation: none;
+    }
+    .pin-modal {
+        animation: none;
+    }
+    .pin-error {
+        animation: none;
+    }
 }

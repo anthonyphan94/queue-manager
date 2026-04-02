@@ -85,10 +85,11 @@ export function PinModal() {
     return (
         <div className="pin-modal-backdrop">
             <div className="pin-modal">
-                <div className="pin-modal-icon">🔐</div>
-                <h2 className="pin-modal-title">Enter PIN</h2>
+                <div className="pin-modal-brand">
+                    <h2 className="pin-modal-title font-brand">Marilyn Beauty Lounge</h2>
+                </div>
                 <p className="pin-modal-subtitle">
-                    Enter your 4-digit PIN to access Marketing
+                    Enter PIN to continue
                 </p>
 
                 <form onSubmit={handleSubmit}>

@@ -63,11 +63,11 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* Brand Name Font - The Seasons with Playfair Display fallback */
+/* Brand Name Font - Playfair Display serif for "Marilyn Beauty Lounge" */
 .font-brand {
-    font-family: 'The Seasons', 'Playfair Display', Georgia, serif;
+    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
     font-weight: 700;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.1em;
 }
 
 /* Mobile-friendly form inputs (prevent iOS auto-zoom) */

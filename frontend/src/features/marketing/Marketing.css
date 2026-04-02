@@ -1,19 +1,70 @@
 /* ================================================
-   SMS Marketing Module - Clean Modern Design
+   SMS Marketing Module - Marilyn Beauty Lounge
    ================================================ */
+
+/* === KEYFRAMES === */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes progressPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.3); }
+    50% { box-shadow: 0 0 8px 2px rgba(22, 163, 74, 0.2); }
+}
+
+@keyframes confirmEnter {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
 
 /* === PAGE LAYOUT === */
 .marketing-page {
     min-height: 100vh;
     padding: 1.5rem;
+    padding-top: 0;
     background-color: #f8fafc;
     color: #1e293b;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    animation: fadeIn 0.5s ease;
+}
+
+.marketing-page::before {
+    content: '';
+    display: block;
+    height: 3px;
+    background: linear-gradient(90deg, #e11d48, #f43f5e, #fb7185, #f43f5e, #e11d48);
+    margin: 0 -1.5rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 50;
 }
 
 @media (min-width: 768px) {
     .marketing-page {
         padding: 2rem 3rem;
+        padding-top: 0;
+    }
+
+    .marketing-page::before {
+        margin: 0 -3rem 0;
     }
 }
 
@@ -23,6 +74,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1.5rem;
+    padding-top: 1.5rem;
     max-width: 1200px;
     margin-left: auto;
     margin-right: auto;
@@ -40,20 +92,25 @@
     max-width: 1200px;
     margin-left: auto;
     margin-right: auto;
+    animation: slideUp 0.5s ease;
 }
 
 .marketing-header h1 {
-    font-size: 1.75rem;
+    font-size: 2rem;
     font-weight: 700;
     margin: 0 0 0.375rem;
     color: #0f172a;
-    letter-spacing: -0.025em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
 }
 
 .marketing-header .subtitle {
-    color: #64748b;
+    color: #94a3b8;
     margin: 0;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 /* === TWO-COLUMN GRID === */
@@ -85,6 +142,25 @@
     border: 1px solid #e2e8f0;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
     overflow: hidden;
+    animation: slideUp 0.5s ease both;
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.marketing-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.03);
+    transform: translateY(-1px);
+}
+
+.marketing-grid .recipients-panel {
+    animation-delay: 0.05s;
+}
+
+.marketing-grid .right-column .composer-panel {
+    animation-delay: 0.1s;
+}
+
+.marketing-grid .right-column .quick-send-panel {
+    animation-delay: 0.15s;
 }
 
 .results-card {
@@ -103,10 +179,12 @@
 }
 
 .panel-title {
-    font-size: 1rem;
+    font-size: 0.8rem;
     font-weight: 600;
-    color: #0f172a;
+    color: #64748b;
     margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 
 /* === RECIPIENTS PANEL === */
@@ -169,10 +247,15 @@
     align-items: center;
     padding: 0.875rem 0.5rem;
     border-right: 1px solid #f1f5f9;
+    transition: background 0.2s ease;
 }
 
 .stat:last-child {
     border-right: none;
+}
+
+.stat:hover {
+    background: #fafbfc;
 }
 
 .stat-value {
@@ -180,6 +263,7 @@
     font-weight: 700;
     color: #0f172a;
     line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
 
 .stat-label {
@@ -202,6 +286,7 @@
     border-radius: 8px;
     background: #fffbeb;
     border: 1px solid #fde68a;
+    animation: slideUp 0.35s ease;
 }
 
 .excluded-alert-header {
@@ -245,7 +330,7 @@
     font-size: 0.7rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     white-space: nowrap;
 }
 
@@ -286,7 +371,7 @@
     font-size: 0.8rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     min-height: 34px;
 }
 
@@ -371,7 +456,7 @@
 
 /* Row States */
 .recipient-table tbody tr {
-    transition: background 0.15s ease;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .recipient-table tbody tr:hover {
@@ -425,7 +510,7 @@
     background: transparent;
     color: #cbd5e1;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -586,13 +671,19 @@
     font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.25s ease;
     min-height: 44px;
 }
 
 .btn-primary:hover:not(:disabled) {
     background: #be123c;
-    box-shadow: 0 2px 8px rgba(225, 29, 72, 0.25);
+    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
+    transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(225, 29, 72, 0.2);
 }
 
 .btn-primary:disabled {
@@ -613,7 +704,7 @@
     font-size: 0.85rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
 }
 
 .btn-secondary:hover {
@@ -647,7 +738,7 @@
     font-size: 0.8rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
 }
 
 .btn-danger:hover {
@@ -673,6 +764,7 @@
     background: #f0fdf4;
     border: 1px solid #bbf7d0;
     border-radius: 8px;
+    animation: slideUp 0.3s ease;
 }
 
 .progress-header {
@@ -706,6 +798,7 @@
     background: linear-gradient(90deg, #16a34a, #22c55e);
     border-radius: 4px;
     transition: width 0.3s ease;
+    animation: progressPulse 2s ease-in-out infinite;
 }
 
 .progress-stats {
@@ -761,6 +854,7 @@
     border: 1px solid #fecaca;
     color: #dc2626;
     font-size: 0.9rem;
+    animation: slideUp 0.3s ease;
 }
 
 .success-message {
@@ -771,6 +865,7 @@
     border: 1px solid #bbf7d0;
     color: #16a34a;
     font-size: 0.9rem;
+    animation: slideUp 0.3s ease;
 }
 
 /* === UNDO TOAST === */
@@ -788,13 +883,13 @@
     border-radius: 10px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
     z-index: 100;
-    animation: toast-slide-up 0.3s ease-out;
+    animation: toast-slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes toast-slide-up {
     from {
         opacity: 0;
-        transform: translateX(-50%) translateY(20px);
+        transform: translateX(-50%) translateY(24px);
     }
     to {
         opacity: 1;
@@ -815,7 +910,7 @@
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
 }
 
 .toast-undo-btn:hover {
@@ -830,7 +925,7 @@
     color: #94a3b8;
     font-size: 0.9rem;
     cursor: pointer;
-    transition: color 0.15s ease;
+    transition: color 0.2s ease;
 }
 
 .toast-close-btn:hover {
@@ -841,12 +936,13 @@
 .confirm-modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(15, 23, 42, 0.5);
     backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 100;
+    animation: fadeIn 0.2s ease;
 }
 
 .confirm-modal {
@@ -856,6 +952,7 @@
     max-width: 400px;
     width: 90%;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    animation: confirmEnter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .confirm-modal h3 {
@@ -887,7 +984,7 @@
     font-size: 0.9rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     min-height: 40px;
 }
 
@@ -905,12 +1002,13 @@
     font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     min-height: 40px;
 }
 
 .confirm-remove-btn:hover {
     background: #b91c1c;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
 }
 
 /* === RESULTS SECTION === */
@@ -933,6 +1031,11 @@
     padding: 1.25rem 2rem;
     border-radius: 10px;
     min-width: 120px;
+    animation: slideUp 0.4s ease both;
+}
+
+.result-stat:nth-child(2) {
+    animation-delay: 0.1s;
 }
 
 .result-stat.sent {
@@ -948,6 +1051,7 @@
 .result-stat .count {
     font-size: 2rem;
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
 }
 
 .result-stat.sent .count { color: #16a34a; }
@@ -992,12 +1096,24 @@
     top: 0;
 }
 
+.results-table tbody tr {
+    transition: background 0.2s ease;
+}
+
 .results-table tr.sent {
     background: #f0fdf4;
 }
 
+.results-table tr.sent:hover {
+    background: #dcfce7;
+}
+
 .results-table tr.failed {
     background: #fef2f2;
+}
+
+.results-table tr.failed:hover {
+    background: #fee2e2;
 }
 
 .status-badge {
@@ -1039,13 +1155,15 @@
     font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.25s ease;
     min-height: 44px;
     align-self: center;
 }
 
 .new-broadcast-button:hover {
     background: #fff1f2;
+    box-shadow: 0 2px 8px rgba(225, 29, 72, 0.15);
+    transform: translateY(-1px);
 }
 
 /* === SMS COST ESTIMATE === */
@@ -1111,9 +1229,57 @@
     font-size: 0.85rem;
     cursor: help;
     opacity: 0.7;
-    transition: opacity 0.15s ease;
+    transition: opacity 0.2s ease;
 }
 
 .sms-cost-estimate .cost-note:hover {
     opacity: 1;
+}
+
+/* === REDUCED MOTION === */
+@media (prefers-reduced-motion: reduce) {
+    .marketing-page,
+    .marketing-header,
+    .marketing-card,
+    .excluded-alert,
+    .send-progress,
+    .error-message,
+    .success-message,
+    .undo-toast,
+    .confirm-modal-backdrop,
+    .confirm-modal,
+    .result-stat,
+    .progress-bar-fill,
+    .pin-error {
+        animation: none !important;
+    }
+
+    .marketing-card,
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger,
+    .bulk-action-btn,
+    .jump-row-btn,
+    .row-remove-btn,
+    .recipient-table tbody tr,
+    .new-broadcast-button,
+    .toast-undo-btn,
+    .toast-close-btn,
+    .confirm-cancel-btn,
+    .confirm-remove-btn,
+    .stat {
+        transition: none !important;
+    }
+
+    .marketing-card:hover {
+        transform: none;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        transform: none;
+    }
+
+    .new-broadcast-button:hover {
+        transform: none;
+    }
 }
