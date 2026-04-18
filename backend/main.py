@@ -10,6 +10,10 @@ import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
+
+# Must run before any app.* import — several modules read os.getenv() at import time.
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -21,9 +25,6 @@ from starlette.requests import Request as StarletteRequest
 
 from app.routers import marketing_router
 from app.routers.marketing import limiter
-
-# Load environment variables from .env file
-load_dotenv()
 
 # --- Configuration ---
 

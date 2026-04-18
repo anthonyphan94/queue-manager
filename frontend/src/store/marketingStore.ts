@@ -23,6 +23,9 @@ function clearStorage() {
     localStorage.removeItem(STORAGE_KEY);
 }
 
+let _toastCounter = 0;
+const nextToastId = () => ++_toastCounter;
+
 // ============================================
 // DATA MODEL - Mail-Style CSV Import
 // ============================================
@@ -88,7 +91,7 @@ interface MarketingState {
     lastRemoved: UndoSnapshot | null;
 
     // === TOAST STATE ===
-    toast: { message: string; showUndo: boolean } | null;
+    toast: { id: number; message: string; showUndo: boolean } | null;
 
     // === SENDING STATE ===
     isSending: boolean;
@@ -256,25 +259,25 @@ export const useMarketingStore = create<MarketingState>((set, get) => ({
         const newIncluded = new Set(state.includedIds);
         newIncluded.delete(rowId);
 
-        // Save for Undo
         const snapshot: UndoSnapshot = {
             rows: [row],
             includedIdsSnapshot: state.includedIds.has(rowId) ? [rowId] : [],
             positions: [rowIndex],
         };
 
+        const toastId = nextToastId();
         set({
             rows: newRows,
             includedIds: newIncluded,
             lastRemoved: snapshot,
-            toast: { message: 'Removed 1 recipient', showUndo: true },
+            toast: { id: toastId, message: 'Removed 1 recipient', showUndo: true },
         });
         saveToStorage(newRows, get().messageDraft);
 
-        // Auto-dismiss toast after 6 seconds
+        // Auto-dismiss by id so a second removal doesn't kill the newer toast
         setTimeout(() => {
             const current = get();
-            if (current.toast?.message === 'Removed 1 recipient') {
+            if (current.toast?.id === toastId) {
                 set({ toast: null, lastRemoved: null });
             }
         }, 6000);
@@ -288,7 +291,6 @@ export const useMarketingStore = create<MarketingState>((set, get) => ({
         const positions: number[] = [];
         const includedSnapshot = Array.from(state.includedIds);
 
-        // Find rows to remove and their positions
         state.rows.forEach((row, index) => {
             if (state.includedIds.has(row.id)) {
                 removedRows.push(row);
@@ -296,10 +298,8 @@ export const useMarketingStore = create<MarketingState>((set, get) => ({
             }
         });
 
-        // Remove the rows
         const newRows = state.rows.filter(r => !state.includedIds.has(r.id));
 
-        // Save for Undo
         const snapshot: UndoSnapshot = {
             rows: removedRows,
             includedIdsSnapshot: includedSnapshot,
@@ -307,18 +307,18 @@ export const useMarketingStore = create<MarketingState>((set, get) => ({
         };
 
         const count = removedRows.length;
+        const toastId = nextToastId();
         set({
             rows: newRows,
             includedIds: new Set(),
             lastRemoved: snapshot,
-            toast: { message: `Removed ${count} recipient${count !== 1 ? 's' : ''}`, showUndo: true },
+            toast: { id: toastId, message: `Removed ${count} recipient${count !== 1 ? 's' : ''}`, showUndo: true },
         });
         saveToStorage(newRows, get().messageDraft);
 
-        // Auto-dismiss toast after 6 seconds
         setTimeout(() => {
             const current = get();
-            if (current.toast?.message.startsWith('Removed ')) {
+            if (current.toast?.id === toastId) {
                 set({ toast: null, lastRemoved: null });
             }
         }, 6000);

@@ -5,6 +5,7 @@ PIN-based authentication with bcrypt hashing.
 PIN is stored in Firestore settings collection.
 """
 
+import asyncio
 import hmac
 import os
 import bcrypt
@@ -36,8 +37,11 @@ async def verify_pin(x_marketing_pin: str = Header(None, alias="X-Marketing-Pin"
     stored_hash = await get_marketing_pin_hash()
 
     if stored_hash:
-        # Verify against bcrypt hash
-        if bcrypt.checkpw(x_marketing_pin.encode('utf-8'), stored_hash.encode('utf-8')):
+        # bcrypt is CPU-bound (~200-300ms); run off the event loop
+        is_match = await asyncio.to_thread(
+            bcrypt.checkpw, x_marketing_pin.encode('utf-8'), stored_hash.encode('utf-8')
+        )
+        if is_match:
             return True
         raise HTTPException(status_code=403, detail="Invalid PIN.")
     else:
@@ -61,8 +65,9 @@ async def verify_pin_endpoint(pin: str) -> bool:
     stored_hash = await get_marketing_pin_hash()
 
     if stored_hash:
-        # Verify against bcrypt hash
-        return bcrypt.checkpw(pin.encode('utf-8'), stored_hash.encode('utf-8'))
+        return await asyncio.to_thread(
+            bcrypt.checkpw, pin.encode('utf-8'), stored_hash.encode('utf-8')
+        )
     else:
         # Fallback to env var for development/first-time setup
         if not DEFAULT_DEV_PIN:
@@ -93,8 +98,11 @@ async def change_pin(current_pin: str, new_pin: str) -> tuple[bool, str]:
     if not is_valid:
         return False, "Current PIN is incorrect"
 
-    # Hash and store new PIN
-    new_hash = bcrypt.hashpw(new_pin.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    # Hash and store new PIN (bcrypt is CPU-bound)
+    new_hash_bytes = await asyncio.to_thread(
+        bcrypt.hashpw, new_pin.encode('utf-8'), bcrypt.gensalt()
+    )
+    new_hash = new_hash_bytes.decode('utf-8')
     success = await set_marketing_pin_hash(new_hash)
 
     if success:

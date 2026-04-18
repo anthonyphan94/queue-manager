@@ -130,9 +130,12 @@ export default function Marketing() {
             const importedRows: Row[] = [];
 
             data.contacts.forEach((c: any, idx: number) => {
+                // Prefer the authoritative sheet row number from the backend so
+                // Jump-to-row matches the actual Google Sheets row the operator sees.
+                const sheetRow: number = typeof c.row_index === 'number' ? c.row_index : idx + 1;
                 importedRows.push({
                     id: `row-${idx}`,
-                    rowIndex: idx + 1,
+                    rowIndex: sheetRow,
                     name: c.name,
                     phone: c.phone,
                     status: 'ready',

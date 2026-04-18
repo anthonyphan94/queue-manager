@@ -30,8 +30,78 @@ BAD_NUMBER_FETCH_LIMIT = 10000
 # Firestore collection for real-time opt-out storage
 _OPT_OUTS_COLLECTION = "opt_outs"
 
+# Firestore collection tracking active batch sends across instances
+_BATCHES_COLLECTION = "batches"
+
 # Maximum concurrent Twilio API calls for batch sending
 _SEND_CONCURRENCY = 10
+
+
+# --- Cross-instance batch cancellation (Firestore-backed) ---
+
+
+async def register_batch(batch_id: str) -> None:
+    """Create the Firestore doc that other instances use to signal a cancel."""
+    from app.database import _get_db, firestore
+    db = _get_db()
+    if not db or not firestore:
+        return
+    try:
+        await db.collection(_BATCHES_COLLECTION).document(batch_id).set({
+            "cancelled": False,
+            "created_at": firestore.SERVER_TIMESTAMP,
+        })
+    except Exception as e:
+        logger.error(f"Could not register batch {batch_id} in Firestore: {e}")
+
+
+async def is_batch_cancelled(batch_id: str) -> bool:
+    """Check Firestore for the cross-instance cancel flag.
+
+    Best-effort: on error returns False (don't surprise-cancel a live batch
+    because Firestore hiccupped). The local asyncio.Event remains authoritative
+    for same-instance cancels.
+    """
+    from app.database import _get_db
+    db = _get_db()
+    if not db:
+        return False
+    try:
+        doc = await db.collection(_BATCHES_COLLECTION).document(batch_id).get()
+        if not doc.exists:
+            return False
+        return bool(doc.to_dict().get("cancelled", False))
+    except Exception as e:
+        logger.error(f"Batch cancel-check failed for {batch_id}: {e}")
+        return False
+
+
+async def mark_batch_cancelled(batch_id: str) -> bool:
+    """Write the cancel flag visible to every instance. True = write succeeded."""
+    from app.database import _get_db
+    db = _get_db()
+    if not db:
+        return False
+    try:
+        await db.collection(_BATCHES_COLLECTION).document(batch_id).set(
+            {"cancelled": True}, merge=True
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Could not mark batch {batch_id} cancelled: {e}")
+        return False
+
+
+async def clear_batch(batch_id: str) -> None:
+    """Delete the Firestore marker after a batch ends (best-effort)."""
+    from app.database import _get_db
+    db = _get_db()
+    if not db:
+        return
+    try:
+        await db.collection(_BATCHES_COLLECTION).document(batch_id).delete()
+    except Exception as e:
+        logger.warning(f"Could not clear batch {batch_id} marker: {e}")
 
 # --- Recently Sent Tracker (30-min dedup, Firestore-backed) ---
 
@@ -40,7 +110,11 @@ _SENT_LOG_COLLECTION = "sent_log"
 
 
 async def _is_recently_sent(phone_stripped: str) -> bool:
-    """Check Firestore if this number was sent to within the dedup window."""
+    """Check Firestore if this number was sent to within the dedup window.
+
+    Dedup is advisory — a Firestore hiccup returns False so sends proceed.
+    Compliance-critical filters (opt-outs) live in fetch_opt_outs, not here.
+    """
     from app.database import _get_db
     db = _get_db()
     if not db:
@@ -54,12 +128,11 @@ async def _is_recently_sent(phone_stripped: str) -> bool:
         sent_at = data.get("sent_at")
         if sent_at is None:
             return False
-        # Firestore timestamps are datetime objects
         if hasattr(sent_at, 'timestamp'):
             return (time.time() - sent_at.timestamp()) < _DEDUP_TTL
         return False
     except Exception as e:
-        logger.warning(f"Dedup check failed for {phone_stripped}: {e}")
+        logger.error(f"Dedup check failed for {phone_stripped} — may double-send: {e}")
         return False
 
 
@@ -75,7 +148,7 @@ async def _mark_sent(phone_stripped: str) -> None:
             "sent_at": firestore.SERVER_TIMESTAMP,
         })
     except Exception as e:
-        logger.warning(f"Dedup mark failed for {phone_stripped}: {e}")
+        logger.error(f"Dedup mark failed for {phone_stripped} — future dedup may miss: {e}")
 
 
 # --- Twilio Client Singleton ---
@@ -134,13 +207,26 @@ def get_messaging_service_sid() -> str:
 # --- Opt-out Storage (Firestore-backed) ---
 
 
+class OptOutStoreUnavailable(Exception):
+    """Raised when the opt-out store (Firestore) is unreachable.
+
+    Callers should refuse to send rather than proceeding with an empty filter —
+    silently dropping opt-outs is a TCPA exposure.
+    """
+
+
 async def add_opt_out(phone_stripped: str, reason: str = "inbound_stop") -> None:
-    """Record a phone number as opted out in Firestore."""
+    """Record a phone number as opted out in Firestore.
+
+    Raises OptOutStoreUnavailable on any failure so the caller can decide
+    whether to retry (webhook) or swallow (post-send permanent-failure hook).
+    """
     from app.database import _get_db, firestore
     db = _get_db()
     if not db or not firestore:
-        logger.warning(f"Firestore unavailable — cannot save opt-out for {phone_stripped}")
-        return
+        raise OptOutStoreUnavailable(
+            f"Firestore unavailable — cannot save opt-out for {phone_stripped}"
+        )
 
     try:
         await db.collection(_OPT_OUTS_COLLECTION).document(phone_stripped).set({
@@ -151,18 +237,19 @@ async def add_opt_out(phone_stripped: str, reason: str = "inbound_stop") -> None
         logger.info(f"Opt-out recorded: {phone_stripped} ({reason})")
     except Exception as e:
         logger.error(f"Failed to save opt-out for {phone_stripped}: {e}")
+        raise OptOutStoreUnavailable(str(e)) from e
 
 
 async def fetch_opt_outs() -> set:
     """Fetch all opted-out phone numbers from Firestore.
 
-    Returns a set of phone numbers (without +) for fast lookup.
-    Replaces the slow Twilio 10,000-message scan.
+    Raises OptOutStoreUnavailable on failure — callers MUST refuse to send
+    if this raises, to avoid TCPA violations from stale or missing opt-out data.
     """
     from app.database import _get_db
     db = _get_db()
     if not db:
-        return set()
+        raise OptOutStoreUnavailable("Firestore client unavailable")
 
     try:
         docs = db.collection(_OPT_OUTS_COLLECTION).stream()
@@ -173,7 +260,7 @@ async def fetch_opt_outs() -> set:
         return numbers
     except Exception as e:
         logger.error(f"Failed to fetch opt-outs from Firestore: {e}")
-        return set()
+        raise OptOutStoreUnavailable(str(e)) from e
 
 
 def _scan_messages(messages) -> set:
@@ -204,7 +291,10 @@ async def seed_opt_outs() -> int:
     """
     client = get_twilio_client()
     logger.info(f"Seeding opt-outs: scanning last {BAD_NUMBER_FETCH_LIMIT} Twilio messages...")
-    messages = client.messages.list(limit=BAD_NUMBER_FETCH_LIMIT, page_size=1000)
+    # messages.list is a blocking HTTP paginator — run in a thread so the event loop stays free
+    messages = await asyncio.to_thread(
+        client.messages.list, limit=BAD_NUMBER_FETCH_LIMIT, page_size=1000
+    )
     bad_numbers = _scan_messages(messages)
 
     for phone in bad_numbers:
@@ -231,14 +321,17 @@ def clean_phone_number(phone: str) -> str:
     """
     if not phone:
         raise ValueError("Phone number cannot be empty")
-    
-    # Remove all non-digit characters except leading +
+
+    # Remove all non-digit characters except +
     cleaned = re.sub(r'[^\d+]', '', phone.strip())
-    
+
+    # + is only valid as a single leading character
+    if cleaned.count('+') > 1 or ('+' in cleaned and not cleaned.startswith('+')):
+        raise ValueError(f"Invalid phone number format: {phone}")
+
     # If it starts with +, keep it; otherwise process as US number
     if cleaned.startswith('+'):
-        # Already has country code
-        digits_only = re.sub(r'\D', '', cleaned)
+        digits_only = cleaned[1:]
         if len(digits_only) < 10 or len(digits_only) > 15:
             raise ValueError(f"Invalid phone number length: {phone}")
         return cleaned
@@ -309,10 +402,16 @@ async def send_sms(to: str, body: str, recipient_name: Optional[str] = None) -> 
         return message.sid
     
     except TwilioRestException as e:
-        # Record permanent failures as opt-outs in Firestore
+        # Record permanent failures as opt-outs in Firestore — best-effort so we
+        # don't mask the Twilio error if the opt-out write itself fails.
         if str(e.code) in PERMANENT_FAIL_CODES:
             phone_stripped = cleaned_phone.lstrip("+")
-            await add_opt_out(phone_stripped, reason=f"error_{e.code}")
+            try:
+                await add_opt_out(phone_stripped, reason=f"error_{e.code}")
+            except OptOutStoreUnavailable as opt_err:
+                logger.error(
+                    f"Could not persist permanent-failure opt-out for {phone_stripped}: {opt_err}"
+                )
 
         # Map Twilio errors to user-friendly messages
         if e.code == 20003:
@@ -347,12 +446,9 @@ async def send_batch_sms(
     Returns:
         List of result dicts with 'name', 'phone', 'status', 'sid'/'error' keys.
     """
-    # Fetch opt-outs from Firestore
-    try:
-        bad_numbers = await fetch_opt_outs()
-    except Exception as e:
-        logger.warning(f"Could not fetch opt-outs, sending without filter: {e}")
-        bad_numbers = set()
+    # Fetch opt-outs from Firestore — if this fails, refuse to send.
+    # Sending without the opt-out list is a TCPA violation risk.
+    bad_numbers = await fetch_opt_outs()
 
     results: list[dict] = []
     sendable: list[int] = []  # indices into results for items to send
